@@ -6,154 +6,162 @@
   <a href="./README.en.md">English</a>
 </p>
 
-> From vague ideas to reviewed experiments, structured metrics, and traceable research decisions.
+<p align="center">
+  <strong>Turn AI-assisted research into a structured, reviewable, reproducible workflow.</strong>
+</p>
 
-**Any Science Framework** 是一个面向 AI 辅助科研的、协议驱动的本地科研工作区生成器。
-
-它不是一个单纯的 prompt 集，也不是某一个具体学科的论文助手，而是一套可以先进行领域特化、再围绕 **idea、实验设计、执行、审查、分析、复盘与迭代** 形成闭环的科研工作系统。
-
-这个仓库保存的是框架开发包。你可以用它生成一个新的 Any Science 科研工作区，也可以继续开发框架本体、构建发布脚本、运行回归测试。
-
----
-
-## 目录
-
-- [这个项目解决什么问题](#这个项目解决什么问题)
-- [核心思想](#核心思想)
-- [它如何工作](#它如何工作)
-- [生成的科研工作区包含什么](#生成的科研工作区包含什么)
-- [快速开始](#快速开始)
-- [推荐工作流](#推荐工作流)
-- [内置科研 Agent](#内置科研-agent)
-- [协议、审查与校验门禁](#协议审查与校验门禁)
-- [开发本框架](#开发本框架)
-- [适用场景](#适用场景)
-- [与 Claude Code / Claude Science 的关系](#与-claude-code--claude-science-的关系)
-- [安全边界](#安全边界)
-- [常见问题](#常见问题)
-- [路线图](#路线图)
-- [License](#license)
+<p align="center">
+  一个面向科研人员的 AI Research Workspace Generator。<br/>
+  让你的科研想法、实验、结果、审查和迭代，不再散落在聊天记录里。
+</p>
 
 ---
 
-## 这个项目解决什么问题
+## Any Science Framework 是什么？
 
-AI 科研助手很强，但当科研过程长期存在于聊天记录里时，很容易出现失控和不可追踪的问题：
+**Any Science Framework** 是一个面向 AI 辅助科研的本地科研工作区生成器。
 
-- 领域背景、实验状态、分析结论混在对话里，跨会话后很难恢复上下文。
-- idea、实验设计、结果分析没有明确状态机，容易跳步、补叙或移动成功判据。
-- reviewer 只是口头提醒，没有形成强制审查和可回归的文件契约。
-- 实验数字没有结构化来源，结论可能无法追溯到结果文件。
-- 失败 idea 被遗忘，后续容易重复踩坑。
-- 脚本可以跑一次，但缺少构建、测试和发布流程，后续维护容易退化。
-
-**Any Science Framework 的目标是把 AI 辅助科研从“聊天式建议”升级为“有状态、有协议、有审查、有证据链的本地科研工作系统”。**
-
-它不试图取代研究者，而是提供一个受约束的科研工作区，让 AI Agent 必须通过明确的文件、协议、角色和校验规则来推进科研任务。
-
----
-
-## 核心思想
-
-Any Science Framework 把科研过程建模为一个可追踪的状态机：
+它可以帮你生成一个带有 **科研总管、领域专家、实验设计者、执行者、分析者和审查者** 的本地工作区，让 AI 不再只是“聊天给建议”，而是按照固定科研流程帮你推进：
 
 ```text
-IDEA → DESIGN → APPROVED → RUNNING → ANALYZED → ITERATE / PROMOTE / KILLED
+想法 → 实验设计 → 审查 → 执行 → 结果分析 → 迭代 / 推进 / 归档
 ```
 
-每个状态都对应明确的文件、审查规则、指标 schema 和后续决策。
+你可以把它理解成一个轻量版的 **AI Research Operating System**：
 
-框架遵循三条核心原则：
-
-### 1. Research is stateful
-
-科研不是一次性问答。每个 idea、实验、结果、失败原因和推进决策都应该有明确状态。
-
-### 2. Protocols over prompts
-
-prompt 很有用，但长期科研工作不能只靠模型自觉。框架通过 `PROTOCOL.md`、文件格式、review gate、metrics schema 和 validation scripts 约束 Agent 行为。
-
-### 3. Review before promotion
-
-实验结果不能直接变成结论。任何 idea、实验设计或分析结论都需要经过 reviewer 审查，并由总管誊写审查意见后才能进入下一状态。
+- 它不是普通 prompt 集。
+- 它不是单个 Agent。
+- 它不是论文写作模板。
+- 它是一个可以把科研过程沉淀到文件、协议、状态和审查记录中的工作区框架。
 
 ---
 
-## 它如何工作
+## 它适合谁？
+
+Any Science Framework 适合这些场景：
+
+| 你是谁 | 它能帮你什么 |
+|---|---|
+| 博士生 / 科研人员 | 管理长期 idea、实验、失败记录和论文主线 |
+| AI / ML 研究者 | 把模型实验变成可追踪、可复盘的闭环 |
+| 独立研究者 | 用 AI 搭建一个结构化科研助理系统 |
+| 使用 Claude Code / Codex 的开发者 | 给 AI Agent 一个更稳定的科研工作区协议 |
+| 多项目并行的人 | 防止思路、实验状态和结果结论在多轮对话中丢失 |
+
+如果你经常遇到下面这些问题，它会特别有用：
+
+- “这个 idea 上次讨论到哪里了？”
+- “这个实验为什么失败？”
+- “这个指标是从哪个结果文件来的？”
+- “这个结论有没有经过审查？”
+- “我是不是又在重复一个之前被证明不行的方向？”
+- “AI 给了很多建议，但没有形成稳定项目资产。”
+
+---
+
+## 使用前 vs 使用后
+
+| 使用普通 AI 对话 | 使用 Any Science Framework |
+|---|---|
+| 想法散落在聊天记录里 | 每个 idea 都有独立卡片和状态 |
+| 实验设计容易临时变化 | 实验前明确目标、指标、对照和成功判据 |
+| 结果分析依赖口头总结 | 指标、日志、结论写入结构化文件 |
+| AI 容易直接给结论 | reviewer 先审查，总管再推进状态 |
+| 失败方向容易遗忘 | 失败 idea 进入 graveyard，保留死因和复活条件 |
+| 跨会话难恢复上下文 | 项目状态沉淀在本地工作区中 |
+
+核心变化是：
+
+> 把 AI 科研助手从“会聊天的顾问”，变成“按科研流程工作的本地协作系统”。
+
+---
+
+## 你会得到什么？
+
+运行安装脚本后，你会得到一个新的科研工作区：
+
+```text
+my-research-workspace/
+├── CLAUDE.md              # 科研总管：负责调度和状态推进
+├── PROTOCOL.md            # 科研协议：定义状态、审查、指标和文件规则
+├── .claude/               # Agent、commands、skills、hooks
+├── domain/                # 你的研究领域档案与领域规则
+├── workspace/
+│   ├── ideas/             # 想法卡片
+│   ├── experiments/       # 实验设计、配置、日志和结果
+│   └── knowledge/         # 研究记忆、失败归档、阶段报告
+└── scripts/               # 校验与工作流脚本
+```
+
+这个工作区会引导你先完成领域特化，然后再进入具体科研任务。
+
+---
+
+## 核心体验
+
+### 1. 先建立你的研究领域
+
+进入工作区后运行：
+
+```text
+/build
+```
+
+AI 会先问你：
+
+- 你研究什么领域？
+- 你的实验资源是什么？
+- 你的论文目标是什么？
+- 你有哪些不可违反的审查红线？
+- 什么样的结果才算有意义？
+
+然后生成领域档案、领域 skill 和 reviewer checklist。
+
+### 2. 把模糊 idea 变成可执行实验
+
+你可以提出一个研究想法，框架会把它推进成：
+
+- idea card
+- experiment card
+- baseline / ablation / metric plan
+- expected outcome
+- risk and fallback
+- reviewer comments
+
+### 3. 让实验结果进入可复盘闭环
+
+实验完成后，结果不会只停留在一句“效果不错”。
+
+框架会要求你沉淀：
+
+- 指标文件
+- 日志与配置
+- 结果分析
+- 是否达到事前成功判据
+- 下一步是迭代、推进，还是归档
+
+---
+
+## 产品工作流
 
 ```mermaid
 flowchart LR
-    A[User Research Goal] --> B[/build Domain Specialization]
-    B --> C[Generated Research Workspace]
-
-    C --> D[CLAUDE.md<br/>Research PI]
-    C --> E[PROTOCOL.md<br/>Workflow Contract]
-    C --> F[Agents<br/>Scholar / Methodologist / Executor / Analyst / Reviewer]
-    C --> G[Commands & Skills]
-    C --> H[Scripts & Hooks]
-
-    F --> I[Ideas]
-    I --> J[Experiment Design]
-    J --> K[Approved Experiment]
-    K --> L[Execution]
-    L --> M[Metrics & Results]
-    M --> N[Analysis]
-    N --> O{Decision}
-
-    O --> P[Iterate]
-    O --> Q[Promote]
-    O --> R[Archive]
-```
-
-运行 `dist/setup.sh` 后，框架会生成一个新的科研工作区。这个工作区包含：
-
-- 一个科研总管角色：`CLAUDE.md`
-- 一个最高协议文件：`PROTOCOL.md`
-- 一组角色化 Agent：scholar、methodologist、executor、analyst、reviewer 等
-- 一组命令和 skill：`/build`、`/status`、`/spawn` 等
-- 一组校验和 hook 脚本：`validate.sh`、`review_gate.sh`、`pending_check.sh` 等
-- 一组科研资产目录：ideas、experiments、knowledge、reports 等
-
-新工作区默认要求先运行 `/build`。`/build` 会通过访谈方式建立领域档案、研究约束、reviewer 红线和领域 skill。未完成领域特化前，总管会拒绝直接开展研究工作，这是设计行为。
-
----
-
-## 生成的科研工作区包含什么
-
-运行 `dist/setup.sh` 后，会得到一个完整的 Any Science 工作区：
-
-```text
-my-any-science/
-├── CLAUDE.md                       # 科研总管角色说明
-├── PROTOCOL.md                     # 文件契约、状态机、错误码和排错规则
-├── README.md                       # 生成工作区的使用说明
-├── .claude/
-│   ├── agents/                     # builder、scholar、methodologist、executor、analyst、reviewer
-│   ├── commands/                   # /build、/status、/spawn
-│   ├── settings.json               # permissions 和 hooks
-│   └── skills/                     # bootstrap、scientific-method、agent-factory、review-rubric
-├── domain/
-│   ├── PROFILE.md                  # 领域档案，初始为 TODO
-│   ├── skills/                     # 领域特化 skill
-│   └── references/                 # 领域参考资料
-├── scripts/
-│   ├── validate.sh                 # 协议校验器
-│   ├── review_gate.sh              # PostToolUse 审查门禁
-│   ├── pending_check.sh            # Stop hook 检查
-│   ├── fork.sh                     # 长期并行研究线
-│   └── harvest.sh                  # 并行线知识回收
-├── templates/
-│   ├── idea_card.md
-│   └── exp_card.md
-└── workspace/
-    ├── ideas/                      # idea 卡片
-    ├── experiments/                # 实验卡片、配置、日志、结果
-    └── knowledge/                  # 研究记忆、graveyard、报告沉淀
+    A[Research Goal<br/>研究目标] --> B[Domain Build<br/>领域特化]
+    B --> C[Idea Card<br/>想法卡片]
+    C --> D[Experiment Design<br/>实验设计]
+    D --> E[Review Gate<br/>审查门禁]
+    E --> F[Run Experiment<br/>执行实验]
+    F --> G[Metrics & Evidence<br/>指标与证据]
+    G --> H[Analysis<br/>结果分析]
+    H --> I{Decision<br/>下一步决策}
+    I --> J[Iterate<br/>继续迭代]
+    I --> K[Promote<br/>推进为主线]
+    I --> L[Archive<br/>归档失败方向]
 ```
 
 ---
 
-## 快速开始
+## 3 分钟开始使用
 
 ### 1. 克隆仓库
 
@@ -162,23 +170,16 @@ git clone https://github.com/feedy-hub/any-science-framework.git
 cd any-science-framework
 ```
 
-### 2. 生成一个新的科研工作区
-
-建议显式指定一个新目录，避免覆盖已有工作区。
+### 2. 生成科研工作区
 
 ```bash
 bash dist/setup.sh /tmp/my-any-science
 cd /tmp/my-any-science
 ```
 
-### 3. 初始化提交
+建议生成到一个新的空目录，避免和已有项目混在一起。
 
-```bash
-git add -A
-git commit -m init
-```
-
-### 4. 进入 Claude 并进行领域特化
+### 3. 启动 Claude Code 并领域特化
 
 ```bash
 claude
@@ -190,177 +191,64 @@ claude
 /build
 ```
 
-`/build` 会启动领域特化流程。未特化前，生成的总管会拒绝直接开展研究工作，这是设计行为。
-
-### 5. 生成并运行验收测试包
-
-在生成的科研工作区里运行：
-
-```bash
-bash /path/to/any-science-framework/dist/setup_test.sh
-```
-
-然后按 `test-kit/TESTS.md` 做验收。首次使用建议先跑其中的“附加自检”，确认 hook、校验器和权限规则在你的 Claude Code 版本下仍然生效。
+完成 `/build` 后，你就拥有了一个按你的研究方向定制的 AI 科研工作区。
 
 ---
 
-## 推荐工作流
+## 典型使用场景
 
-### 领域特化
+### 场景一：管理博士课题中的多个 idea
 
-1. 进入生成的工作区。
-2. 启动 `claude`。
-3. 运行 `/build`。
-4. 按 builder 的访谈问题提供领域、研究形态、资源、目标场所和 reviewer 红线。
-5. builder 会生成或补全 `domain/PROFILE.md`、领域 skill 和 reviewer 定制清单。
+你可以把每个想法写成 idea card，让 scholar 做新颖性检查，让 methodologist 设计最小验证实验，再让 reviewer 判断是否值得投入更多资源。
 
-### Idea 到实验
+### 场景二：管理机器学习实验闭环
 
-1. 让 scholar 做领域调查、新颖性核查或 idea 发掘。
-2. idea 卡片写入 `workspace/ideas/IDEA-<id>.md`。
-3. reviewer 进行 L1 或 L2 审查。
-4. 总管誊写 reviewer 意见，并把文件末尾 `REVIEW:` 改为 `PASS` 或 `REVISE`。
-5. methodologist 把通过的 idea 设计成实验卡片。
+你可以把一次实验拆成目标、数据、baseline、指标、成功判据和失败预案。实验完成后，analyst 会根据事前标准判断是否推进，而不是临时改变结论口径。
 
-### 实验执行与分析
+### 场景三：构建自己的领域科研 Agent
 
-1. executor 按实验卡片执行，不擅自改变成功判据。
-2. 结果写入 `workspace/experiments/<id>/results/`。
-3. `metrics.json` 必须满足 `PROTOCOL.md` 中的 schema。
-4. analyst 先跑 `bash scripts/validate.sh`，再分析结果。
-5. analyst 必须按事前成功判据给出 `ITERATE`、`PROMOTE` 或 `KILL` 建议。
+你可以通过 `/build` 把框架特化到不同领域，例如 AI/ML、语音、多模态、生物医学、材料科学、社会科学或理论研究。
 
-### 状态巡检
+### 场景四：把失败经验变成资产
 
-```bash
-bash scripts/validate.sh
-```
-
-或在 Claude 会话里运行：
-
-```text
-/status
-```
+失败的 idea 不会被简单删除，而会被记录到 graveyard 中，包括失败原因、证据和未来可能复活的条件。
 
 ---
 
-## 内置科研 Agent
+## 内置角色
 
-Any Science Framework 使用角色化 Agent，而不是让一个泛化助手负责所有科研环节。
+Any Science Framework 默认不是一个“万能助手”，而是一组分工明确的科研角色：
 
-| Agent | 职责 |
-|---|---|
-| PI / 总管 | 调度研究方向、维护状态机、汇总 reviewer 意见、决定下一步 |
-| Builder | 通过 `/build` 建立领域档案、领域 skill 和 reviewer 清单 |
-| Scholar | 文献调查、idea 发掘、新颖性核查 |
-| Methodologist | 将 idea 转化为可执行实验设计，明确 MVE、对照、指标和成功判据 |
-| Executor | 执行实验、写代码、跑流程、整理日志和结果 |
-| Analyst | 分析实验结果、诊断失败原因、提出 ITERATE / PROMOTE / KILL 建议 |
-| Reviewer | 只审不改，检查逻辑、证据、指标、引用和结论边界 |
+| 角色 | 产品化理解 | 主要职责 |
+|---|---|---|
+| PI / 总管 | 科研项目经理 | 维护主线、调度角色、推进状态 |
+| Builder | 领域初始化向导 | 通过 `/build` 建立领域档案和规则 |
+| Scholar | 文献与 idea 助手 | 做调研、新颖性检查、idea 发掘 |
+| Methodologist | 实验设计师 | 把 idea 变成可验证实验 |
+| Executor | 实验执行者 | 写代码、跑实验、整理结果 |
+| Analyst | 结果分析师 | 分析指标、诊断失败、提出下一步 |
+| Reviewer | 审查者 | 检查证据、逻辑、指标和结论边界 |
 
-Reviewer 的设计是这个框架的重要约束：
-
-> reviewer 不直接修改产出文件，只提供审查意见；总管负责誊写意见并更新最终 `REVIEW:` 状态。
-
-这样可以避免“自己写、自己审、自己通过”的隐性失控。
+这套角色分工的目的不是制造复杂性，而是避免一个 AI 同时负责“提出想法、设计实验、执行实验、审查自己、宣布成功”。
 
 ---
 
-## 协议、审查与校验门禁
+## 为什么不是普通 prompt？
 
-生成的工作区由 `PROTOCOL.md` 统管。
+普通 prompt 通常解决的是“这一次怎么回答”。
 
-`PROTOCOL.md` 定义：
+Any Science Framework 解决的是“一个科研项目如何长期推进”。
 
-- 合法研究状态
-- 文件头部和尾部格式
-- `STATUS:` 与 `REVIEW:` 的兼容矩阵
-- reviewer 誊写规则
-- graveyard 条目格式
-- `metrics.json` schema
-- hook 输入输出契约
-- 错误码和冲突处理方式
+它把关键科研资产保存到本地文件中：
 
-生成工作区内置校验器：
+- idea 保存在 `workspace/ideas/`
+- 实验保存在 `workspace/experiments/`
+- 结果和指标保存在实验目录下
+- 失败方向保存在 `workspace/knowledge/`
+- 状态规则写在 `PROTOCOL.md`
+- 总管行为写在 `CLAUDE.md`
 
-```bash
-bash scripts/validate.sh
-```
-
-校验器会检查 status、REVIEW、graveyard 和 metrics schema。`.claude/settings.json` 还会配置 PostToolUse 与 Stop hook，用于拦截缺少审查状态或协议不合法的产出。
-
-这套机制的目标是让科研过程可审计、可回归，并防止 Agent 悄悄跳过审查或报告非法结果。
-
----
-
-## 开发本框架
-
-如果你要修改 Any Science Framework 本体，而不是使用生成后的科研工作区，请在本仓库开发。
-
-### 构建发布脚本
-
-```bash
-bash scripts/build.sh
-```
-
-构建脚本会：
-
-- 从 `src/` 复制脚本到 `dist/`。
-- 统一转换为 LF 行尾。
-- 设置可执行权限。
-- 运行 `bash -n` 做语法检查。
-
-### 运行端到端测试
-
-```bash
-bash tests/smoke.sh
-```
-
-smoke test 会：
-
-- 构建发布脚本。
-- 生成临时 Any Science 工作区。
-- 运行生成工作区内的 `scripts/validate.sh`。
-- 生成 `test-kit/`。
-- 构造缺少 REVIEW、重复 status、REVIEW 不在文件末尾、非法 metrics 等坏例，确认校验器会拒绝。
-
-### 仓库结构
-
-```text
-any-science-framework/
-├── src/
-│   ├── setup.sh          # 源码版工作区生成脚本
-│   └── setup_test.sh     # 源码版验收测试包生成脚本
-├── dist/
-│   ├── setup.sh          # 可直接使用的发布版工作区生成脚本
-│   └── setup_test.sh     # 可直接使用的发布版测试包生成脚本
-├── scripts/
-│   └── build.sh          # 从 src 构建 dist，并强制 LF 行尾
-├── tests/
-│   └── smoke.sh          # 端到端回归测试
-├── docs/
-│   ├── design.md         # 当前设计范围
-│   └── plan.md           # 实施计划和发布检查项
-├── .gitattributes        # 强制脚本和文档使用 LF 行尾
-└── README.md
-```
-
----
-
-## 适用场景
-
-Any Science Framework 适合：
-
-- AI 辅助科研工作流
-- 机器学习实验管理
-- 论文 idea 探索与筛选
-- 可复现实验闭环
-- 文献到实验的转化流程
-- 多 Agent 科研助手
-- 领域专属科研 Copilot
-- 需要长期追踪 idea、实验、失败原因和结论边界的研究项目
-
-它尤其适合那些实验迭代频繁、指标驱动明显、跨会话容易丢失上下文的科研方向。
+所以，即使对话中断，你仍然可以从工作区文件恢复项目状态。
 
 ---
 
@@ -368,30 +256,78 @@ Any Science Framework 适合：
 
 Any Science Framework 不是 Anthropic 官方产品。
 
-它是一个第三方开源框架，用来生成兼容 Claude Code 风格的本地科研工作区。你可以把它理解为一个轻量、文件化、协议驱动的科研操作层。
+它是一个第三方开源框架，用来生成适合 Claude Code 风格的本地科研工作区。
 
-两者关系可以这样理解：
+可以这样理解：
 
 ```text
-Claude 模型
-   ↓
-Claude Code / Claude Science 运行环境
-   ↓
+Claude Code：提供 AI 编程与本地项目操作环境
 Claude Science：官方科学工作台产品
-Any Science Framework：第三方开源科研工作区生成器
-   ↓
-你的具体科研项目
+Any Science Framework：开源科研工作区生成器，强调流程、协议和审查闭环
 ```
 
-Claude Science 更像产品级科学工作台，强调官方 UI、科学工具、数据分析和计算环境整合。
+如果说 Claude Science 更像一个产品级科学工作台，那么 Any Science Framework 更像一个可改造的科研工作区模板：轻量、开放、文件化，适合按自己的研究习惯定制。
 
-Any Science Framework 更像开源可改造的科研协议层，强调文件契约、多 Agent 分工、review gate、metrics schema 和实验状态机。它没有官方 Claude Science 的完整 UI，但更容易按自己的研究方向和工作习惯进行定制。
+---
+
+## 设计原则
+
+### Files over chat history
+
+重要科研状态应该沉淀到文件，而不是只留在聊天记录里。
+
+### Workflow over one-shot answer
+
+科研不是一次性回答，而是多轮 idea、实验、分析和修正。
+
+### Review before conclusion
+
+结论必须经过审查，不能因为一次结果看起来不错就直接推进。
+
+### Failed ideas are assets
+
+失败方向也是科研资产。记录失败原因可以减少重复踩坑。
+
+### Human remains the PI
+
+AI 可以协助研究，但最终科学判断仍然属于研究者。
+
+---
+
+## 技术组成
+
+这一部分适合开发者阅读。普通用户只需要看上面的产品介绍和快速开始即可。
+
+```text
+any-science-framework/
+├── src/
+│   ├── setup.sh          # 源码版工作区生成脚本
+│   └── setup_test.sh     # 源码版验收测试包生成脚本
+├── dist/
+│   ├── setup.sh          # 可直接使用的发布版脚本
+│   └── setup_test.sh     # 可直接使用的测试包生成脚本
+├── scripts/
+│   └── build.sh          # 从 src 构建 dist
+├── tests/
+│   └── smoke.sh          # 端到端回归测试
+├── docs/
+│   ├── design.md
+│   └── plan.md
+└── README.md
+```
+
+开发框架本体时，可以运行：
+
+```bash
+bash scripts/build.sh
+bash tests/smoke.sh
+```
 
 ---
 
 ## 安全边界
 
-Any Science Framework 会通过 `.claude/settings.json` 配置权限规则，并通过 hook 和校验器减少误操作。但这些都是应用层约束，不能替代容器、虚拟机或操作系统级隔离。
+Any Science Framework 会通过配置、hook 和校验器减少常见误操作，但这些属于应用层约束，不能替代容器、虚拟机或操作系统级隔离。
 
 涉及重要数据、私有代码或远程计算资源时，建议在隔离环境中使用，并在执行前审查生成的命令、脚本和配置。
 
@@ -399,41 +335,38 @@ Any Science Framework 会通过 `.claude/settings.json` 配置权限规则，并
 
 ## 常见问题
 
-### 为什么新工作区一开始拒绝做研究？
+### 新工作区为什么一开始不直接做研究？
 
-因为 `domain/PROFILE.md` 初始是未特化状态。框架要求先运行 `/build`，明确领域、证据类型、资源、目标场所和审查标准，再开始研究。
+因为框架要求先完成领域特化。只有明确研究领域、资源条件、证据标准和审查红线后，AI 才能更稳定地协助科研。
 
-### `dist/` 和 `src/` 有什么区别？
+### 它能替我保证论文创新性吗？
 
-`src/` 是源码版本，适合开发者修改。`dist/` 是发布版本，适合直接使用。每次修改 `src/` 后都应该运行：
+不能。它能帮助你组织调研、实验和审查流程，但科学创新性仍然需要研究者判断。
 
-```bash
-bash scripts/build.sh
-```
+### 它适合非 AI 领域吗？
 
-### 会不会覆盖我已有的项目？
+适合。框架本身是领域无关的。你可以通过 `/build` 把它特化到不同科研方向。
 
-如果你把 `dist/setup.sh` 指向已有目录，它会在该目录中写入框架文件，可能和已有文件混在一起。建议始终指定一个新的空目录。
+### 它有图形界面吗？
 
-### 为什么要强制 LF 行尾？
+当前版本没有独立 GUI。它主要面向 Claude Code / 本地文件系统工作流。
 
-这个项目主要通过 Bash 运行。Windows CRLF 行尾可能导致脚本解析异常。仓库用 `.gitattributes` 强制 LF，构建脚本也会再次归一化。
+### 会不会覆盖已有项目？
 
-### 这个框架能保证科研结论正确吗？
-
-不能。它只能让过程更结构化、更可审查、更可追踪。科学判断仍然需要研究者负责，尤其是实验设计、统计有效性、领域假设和论文结论边界。
+建议始终生成到新的空目录。如果把脚本指向已有目录，框架文件会写入该目录，可能和原项目文件混在一起。
 
 ---
 
 ## 路线图
 
-- [ ] 将当前单文件 `setup.sh` 拆成模板目录，例如 `templates/agents/`、`templates/scripts/`、`templates/skills/`。
-- [ ] 增加更细粒度的测试用例，覆盖 hook 输入 schema 漂移。
-- [ ] 增加 release 打包脚本和版本号。
-- [ ] 增加可选的 Docker/devcontainer 示例。
-- [ ] 增加更多领域特化模板，例如 AI/ML、生物医学、材料、社会科学和理论研究。
-- [ ] 增加示例科研工作区。
-- [ ] 增加英文 README 与多语言文档同步检查。
+- [ ] 提供更完整的示例科研工作区
+- [ ] 增加不同领域的 starter packs
+- [ ] 增加产品化效果图和演示文档
+- [ ] 将模板拆成更容易维护的模块
+- [ ] 增加 release 打包脚本和版本号
+- [ ] 增加 Docker / devcontainer 示例
+- [ ] 增加更多自动化测试
+- [ ] 完善英文 README 与多语言文档同步
 
 ---
 
