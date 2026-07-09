@@ -145,6 +145,67 @@ my-any-science/
     └── knowledge/
 ```
 
+## Optional Extensions: UI And Voice
+
+Two optional extension installers are available under `dist/extensions/`. Run them inside a generated Any Science research workspace.
+
+### Local UI
+
+```bash
+cd /path/to/my-any-science
+bash /path/to/any-science-framework/dist/extensions/setup_ui.sh
+bash scripts/ui_start.sh
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8321
+```
+
+UI boundaries:
+
+- The UI is a read-only projection of `workspace/`.
+- The only write entrypoint is `/api/inbox`, which writes to `workspace/inbox/`.
+- UI input is semi-trusted and still goes through the PI workflow.
+- The server binds only to `127.0.0.1` and keeps Host / Origin validation.
+- Existing target files are backed up as `.bak.<timestamp>` before replacement.
+
+Stop the UI:
+
+```bash
+bash scripts/ui_stop.sh
+```
+
+### Voice Extension
+
+```bash
+cd /path/to/my-any-science
+bash /path/to/any-science-framework/dist/extensions/setup_voice.sh
+bash scripts/voice/voice_status.sh
+```
+
+The voice extension does not fetch models or install dependencies. It only reuses local tools:
+
+- Recording: `rec`, `arecord`, or `ffmpeg`
+- STT: `ANY_SCIENCE_WHISPER_CMD`, `whisper-cli`, `whisper`, or `faster-whisper`
+- TTS: `say`, `espeak-ng`, `espeak`, or WSL `powershell.exe` SAPI
+
+Voice input example:
+
+```bash
+bash scripts/voice/dictate.sh 8
+```
+
+If you already have a local Whisper command and model, configure it explicitly:
+
+```bash
+export ANY_SCIENCE_WHISPER_CMD='whisper --language zh --output_format txt'
+bash scripts/voice/dictate.sh 8
+```
+
+The transcript is shown for confirmation first. Once confirmed, it is written only to `workspace/inbox/` and does not directly edit ideas, experiments, or results.
+
 ## Recommended Workflow
 
 ### Domain Specialization
@@ -246,4 +307,3 @@ The framework is run through Bash. Windows CRLF can make WSL/bash treat `\r` as 
 ## License
 
 No license has been selected yet. Add an explicit open-source license before public reuse.
-

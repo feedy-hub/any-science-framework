@@ -316,6 +316,69 @@ any-science-framework/
 └── README.md
 ```
 
+## 可选扩展：UI 和 Voice
+
+仓库提供两个可选扩展安装器，位于 `dist/extensions/`。它们必须在已生成的 Any Science 科研工作区内运行。
+
+### 安装本地 UI
+
+```bash
+cd /path/to/my-any-science
+bash /path/to/any-science-framework/dist/extensions/setup_ui.sh
+bash scripts/ui_start.sh
+```
+
+然后打开：
+
+```text
+http://127.0.0.1:8321
+```
+
+UI 扩展的设计边界：
+
+- UI 只读展示 `workspace/` 中的卡片、结果、知识和 hook 日志。
+- 唯一写入口是 `/api/inbox`，只会写入 `workspace/inbox/`。
+- UI 输入被视为半信任内容，仍需总管按正常流程处理。
+- server 只绑定 `127.0.0.1`，并保留 Host / Origin 校验。
+- 安装时如果目标文件已存在，会先创建 `.bak.<timestamp>` 备份。
+
+停止 UI：
+
+```bash
+bash scripts/ui_stop.sh
+```
+
+### 安装语音扩展
+
+```bash
+cd /path/to/my-any-science
+bash /path/to/any-science-framework/dist/extensions/setup_voice.sh
+bash scripts/voice/voice_status.sh
+```
+
+语音扩展不会下载模型，也不会安装依赖。它只检测并复用本地已有工具：
+
+- 录音：`rec`、`arecord` 或 `ffmpeg`
+- STT：`ANY_SCIENCE_WHISPER_CMD`、`whisper-cli`、`whisper` 或 `faster-whisper`
+- TTS：`say`、`espeak-ng`、`espeak` 或 WSL 的 `powershell.exe` SAPI
+
+语音输入示例：
+
+```bash
+bash scripts/voice/dictate.sh 8
+```
+
+如果你已经有本地 whisper 命令和模型，可以显式指定：
+
+```bash
+export ANY_SCIENCE_WHISPER_CMD='whisper --language zh --output_format txt'
+bash scripts/voice/dictate.sh 8
+```
+
+转写结果会先让你确认，确认后只写入 `workspace/inbox/`，不会直接修改任何 idea、实验或结果文件。
+
+---
+
 开发框架本体时，可以运行：
 
 ```bash

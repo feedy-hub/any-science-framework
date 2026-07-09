@@ -45,6 +45,7 @@ fi
 grep -q '\[E03\]' /tmp/anyscience_bad_exp.log
 grep -q '\[E06\]' /tmp/anyscience_bad_exp.log
 
+cd "$ROOT"
 rm -rf "$TMP_ROOT"
+"$ROOT/tests/extensions_smoke.sh"
 echo "OK: smoke tests passed"
-
