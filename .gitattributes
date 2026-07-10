@@ -5,5 +5,10 @@
 *.ps1 text eol=lf
 *.py text eol=lf
 *.html text eol=lf
+*.cs text eol=lf
+*.csproj text eol=lf
+*.props text eol=lf
+*.sln text eol=lf
+*.xaml text eol=lf
 .gitignore text eol=lf
 .gitattributes text eol=lf

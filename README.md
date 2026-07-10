@@ -17,6 +17,57 @@
 
 ---
 
+## AnyVoice Companion（Windows 原生桌面伴侣）
+
+仓库现在包含一个与科研工作区解耦的 Windows 桌面语音伴侣基础工程。它使用 .NET 8 WPF 和当前用户专属 Named Pipe，不需要 WSL，也不占用本地 HTTP 端口。
+
+第二、三阶段现已包含：
+
+- 透明、置顶、可拖动的最小桌面角色与字幕；
+- `idle`、`listening`、`thinking`、`speaking`、`success`、`needsInput`、`error` 状态；
+- 带长度上限的 JSON 事件协议；
+- 密钥、Authorization、完整 Windows 路径和代码块播报过滤；
+- 当前 Windows 用户隔离的 Named Pipe 服务端和客户端；
+- 单实例、系统托盘、设置持久化、窗口位置与字幕显示控制；
+- 通过 Windows `System.Speech` 提供的可选 TTS 播报；
+- 复用本机 FFmpeg、Whisper CLI 和已有 `.pt` 模型的离线听写；
+- 默认关闭的 `Ctrl+Alt+V` 全局听写热键；
+- 听写结果仅复制到剪贴板，不自动执行，也不自动朗读原始转写；
+- 不依赖 NuGet 测试框架的离线测试套件。
+
+在 PowerShell 中运行：
+
+```powershell
+# 只检查 .NET 8 SDK；缺少时不会自动安装
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\bootstrap_companion.ps1
+
+# 测试并构建
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_companion.ps1
+
+# 启动桌面伴侣；可从角色右键菜单或系统托盘退出
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_companion.ps1
+```
+
+请使用 `run_companion.ps1` 启动。当前构建依赖用户级 .NET 8，直接双击 Release 目录中的框架依赖型 EXE 可能会误用系统级旧版 .NET。
+
+首次使用听写前，可在 `Settings > Voice > Detect local tools` 自动检测本机组件，也可以显式配置：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_companion.ps1 `
+  -FfmpegPath 'D:\tools\ffmpeg\bin\ffmpeg.exe' `
+  -WhisperPath 'D:\python\Scripts\whisper.exe' `
+  -ModelPath "$HOME\.cache\whisper\tiny.pt" `
+  -AudioDevice '麦克风 (USB Audio)'
+```
+
+启动后，从托盘选择 `Start dictation` 开始，再选择 `Stop and transcribe` 结束；转写成功后文字会进入剪贴板。启用全局热键后，连续两次按 `Ctrl+Alt+V` 可完成同一流程。所有 Whisper 调用都设置为离线模式，缺少模型时会报错，不会自动下载。
+
+AnyVoice Companion 独立保存配置到 `%LOCALAPPDATA%\AnyVoiceCompanion\config.json`，不会覆盖原有 Any Science Voice 脚本，也不要求 WSL。角色包导入、Codex 适配器和 Claude Code 适配器仍属于后续阶段。
+
+完整设计见 [`docs/superpowers/specs/2026-07-10-anyvoice-companion-design.md`](docs/superpowers/specs/2026-07-10-anyvoice-companion-design.md)。
+
+---
+
 ## Any Science Framework 是什么？
 
 **Any Science Framework** 是一个面向 AI 辅助科研的本地科研工作区生成器。

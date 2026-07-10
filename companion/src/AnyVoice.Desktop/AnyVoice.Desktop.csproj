@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AnyVoice.Core\AnyVoice.Core.csproj" />
+    <ProjectReference Include="..\AnyVoice.Protocol\AnyVoice.Protocol.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AnyVoice.Core\AnyVoice.Core.csproj" />
+    <ProjectReference Include="..\..\src\AnyVoice.Desktop\AnyVoice.Desktop.csproj" />
+    <ProjectReference Include="..\..\src\AnyVoice.Protocol\AnyVoice.Protocol.csproj" />
+  </ItemGroup>
+</Project>
