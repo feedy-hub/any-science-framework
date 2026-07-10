@@ -10,6 +10,7 @@ $Root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $PidFile = Join-Path $Root '.claude\ui.pid'
 $LogFile = Join-Path $Root '.claude\ui.log'
 $ErrorLog = Join-Path $Root '.claude\ui.error.log'
+$ServerPath = (Resolve-Path -LiteralPath (Join-Path $Root 'ui\server.py')).Path
 $Utf8NoBom = [Text.UTF8Encoding]::new($false)
 
 function Find-Python {
@@ -28,11 +29,29 @@ function Find-Python {
 
 [IO.Directory]::CreateDirectory((Split-Path -Parent $PidFile)) | Out-Null
 if (Test-Path -LiteralPath $PidFile) {
-    $existingPid = [int]([IO.File]::ReadAllText($PidFile).Trim())
-    $existing = Get-Process -Id $existingPid -ErrorAction SilentlyContinue
+    $rawMetadata = [IO.File]::ReadAllText($PidFile).Trim()
+    $metadata = $null
+    try { $metadata = $rawMetadata | ConvertFrom-Json } catch { }
+    $metadataFields = if ($metadata) { @($metadata.PSObject.Properties.Name) } else { @() }
+    $metadataValid = $metadataFields -contains 'pid' -and $metadataFields -contains 'port' -and $metadataFields -contains 'workspace' -and $metadataFields -contains 'server'
+    $existingPid = if ($metadataValid) { [int]$metadata.pid } elseif ($rawMetadata -match '^\d+$') { [int]$rawMetadata } else { 0 }
+    $existing = if ($existingPid) { Get-Process -Id $existingPid -ErrorAction SilentlyContinue } else { $null }
     if ($existing) {
-        Write-Host "UI already running: http://127.0.0.1:$Port"
-        return
+        $cim = Get-CimInstance Win32_Process -Filter "ProcessId=$existingPid" -ErrorAction SilentlyContinue
+        $expectedServer = if ($metadataValid) { [string]$metadata.server } else { $ServerPath }
+        $isUi = $cim -and $cim.CommandLine -match [regex]::Escape($expectedServer)
+        $isThisWorkspace = $metadataValid -and ([IO.Path]::GetFullPath([string]$metadata.workspace) -eq $Root)
+        if ($isUi -and $isThisWorkspace) {
+            $runningPort = [int]$metadata.port
+            if ($runningPort -ne $Port) {
+                throw "UI is already running on port $runningPort, not requested port $Port"
+            }
+            Write-Host "UI already running: http://127.0.0.1:$runningPort"
+            return
+        }
+        if ($isUi -and -not $metadataValid) {
+            throw 'A legacy UI process is still running. Stop it before restarting with the updated launcher.'
+        }
     }
     Remove-Item -LiteralPath $PidFile -Force
 }
@@ -41,12 +60,19 @@ $python = Find-Python
 $oldPort = $env:ANY_SCIENCE_UI_PORT
 $env:ANY_SCIENCE_UI_PORT = [string]$Port
 try {
-    $process = Start-Process -FilePath $python -ArgumentList 'ui/server.py' -WorkingDirectory $Root -WindowStyle Hidden -RedirectStandardOutput $LogFile -RedirectStandardError $ErrorLog -PassThru
+    $quotedServerPath = '"' + $ServerPath + '"'
+    $process = Start-Process -FilePath $python -ArgumentList $quotedServerPath -WorkingDirectory $Root -WindowStyle Hidden -RedirectStandardOutput $LogFile -RedirectStandardError $ErrorLog -PassThru
 }
 finally {
     if ($null -eq $oldPort) { Remove-Item Env:ANY_SCIENCE_UI_PORT -ErrorAction SilentlyContinue } else { $env:ANY_SCIENCE_UI_PORT = $oldPort }
 }
-[IO.File]::WriteAllText($PidFile, [string]$process.Id, $Utf8NoBom)
+$metadata = [ordered]@{
+    pid = $process.Id
+    port = $Port
+    workspace = $Root
+    server = $ServerPath
+}
+[IO.File]::WriteAllText($PidFile, ($metadata | ConvertTo-Json -Compress), $Utf8NoBom)
 
 $url = "http://127.0.0.1:$Port/api/overview"
 for ($attempt = 0; $attempt -lt 50; $attempt++) {

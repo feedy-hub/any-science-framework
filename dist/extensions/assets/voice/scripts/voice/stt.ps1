@@ -10,7 +10,23 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $AudioFile = (Resolve-Path -LiteralPath $AudioFile).Path
+$oldEnvironment = @{
+    PYTHONUTF8 = $env:PYTHONUTF8
+    PYTHONIOENCODING = $env:PYTHONIOENCODING
+    HF_HUB_OFFLINE = $env:HF_HUB_OFFLINE
+    TRANSFORMERS_OFFLINE = $env:TRANSFORMERS_OFFLINE
+    Path = $env:Path
+}
+$env:PYTHONUTF8 = '1'
+$env:PYTHONIOENCODING = 'utf-8'
+$env:HF_HUB_OFFLINE = '1'
+$env:TRANSFORMERS_OFFLINE = '1'
+if ($env:ANY_SCIENCE_FFMPEG) {
+    $ffmpegPath = (Resolve-Path -LiteralPath $env:ANY_SCIENCE_FFMPEG).Path
+    $env:Path = (Split-Path -Parent $ffmpegPath) + [IO.Path]::PathSeparator + $env:Path
+}
 
+try {
 if ($AdapterPath) {
     $AdapterPath = (Resolve-Path -LiteralPath $AdapterPath).Path
     if ([IO.Path]::GetExtension($AdapterPath) -ieq '.ps1') {
@@ -61,17 +77,7 @@ if (-not $modelPath) {
 
 $outputDirectory = Join-Path ([IO.Path]::GetTempPath()) ('anyscience-stt-' + [guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory($outputDirectory) | Out-Null
-$oldEnvironment = @{
-    PYTHONUTF8 = $env:PYTHONUTF8
-    PYTHONIOENCODING = $env:PYTHONIOENCODING
-    HF_HUB_OFFLINE = $env:HF_HUB_OFFLINE
-    TRANSFORMERS_OFFLINE = $env:TRANSFORMERS_OFFLINE
-}
 try {
-    $env:PYTHONUTF8 = '1'
-    $env:PYTHONIOENCODING = 'utf-8'
-    $env:HF_HUB_OFFLINE = '1'
-    $env:TRANSFORMERS_OFFLINE = '1'
     $arguments = @(
         $AudioFile,
         '--model', $modelPath,
@@ -81,7 +87,11 @@ try {
         '--verbose', 'False'
     )
     & $WhisperExecutable @arguments | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "Whisper exited with code $LASTEXITCODE" }
+    $whisperSucceeded = $?
+    $isPowerShellScript = [IO.Path]::GetExtension($WhisperExecutable) -ieq '.ps1'
+    if (-not $whisperSucceeded -or (-not $isPowerShellScript -and $LASTEXITCODE -ne 0)) {
+        throw "Whisper exited with code $LASTEXITCODE"
+    }
     $transcript = Get-ChildItem -LiteralPath $outputDirectory -File -Filter '*.txt' | Select-Object -First 1
     if (-not $transcript) { throw 'Whisper did not create a transcript file' }
     $text = [regex]::Replace([IO.File]::ReadAllText($transcript.FullName, [Text.Encoding]::UTF8), '\s+', ' ').Trim()
@@ -89,9 +99,12 @@ try {
     Write-Output $text
 }
 finally {
+    if (Test-Path -LiteralPath $outputDirectory) { Remove-Item -LiteralPath $outputDirectory -Recurse -Force }
+}
+}
+finally {
     foreach ($name in $oldEnvironment.Keys) {
         $value = $oldEnvironment[$name]
         if ($null -eq $value) { Remove-Item "Env:$name" -ErrorAction SilentlyContinue } else { Set-Item "Env:$name" $value }
     }
-    if (Test-Path -LiteralPath $outputDirectory) { Remove-Item -LiteralPath $outputDirectory -Recurse -Force }
 }

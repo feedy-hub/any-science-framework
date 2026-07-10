@@ -76,7 +76,17 @@ try {
 
     $inbox = Join-Path $Root 'workspace\inbox'
     [IO.Directory]::CreateDirectory($inbox) | Out-Null
-    $path = Join-Path $inbox "voice-$(Get-Date -Format 'yyyyMMdd-HHmmss')-$PID.md"
+    $workspaceRoot = [IO.Path]::GetFullPath((Join-Path $Root 'workspace'))
+    $inboxPath = [IO.Path]::GetFullPath($inbox)
+    if (-not $inboxPath.StartsWith($workspaceRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'workspace/inbox is outside the workspace boundary'
+    }
+    $inboxItem = Get-Item -LiteralPath $inbox -Force
+    if (($inboxItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'workspace/inbox is a junction or symbolic link; refusing to write'
+    }
+    $nonce = [guid]::NewGuid().ToString('N').Substring(0, 12)
+    $path = Join-Path $inbox "voice-$(Get-Date -Format 'yyyyMMdd-HHmmss-fff')-$PID-$nonce.md"
     $content = "# Voice Request $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n- status: pending`n- source: voice`n- trust: semi-trusted; inspect with E-SEC-01`n`n$text`n"
     [IO.File]::WriteAllText($path, $content, [Text.UTF8Encoding]::new($false))
     Write-Host "Saved: $path"

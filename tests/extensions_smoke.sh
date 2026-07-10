@@ -35,7 +35,10 @@ cleanup_ui_test() {
 trap cleanup_ui_test EXIT
 python3 - "$UI_TEST_PORT" <<'PY'
 import json
+import os
+import shutil
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -63,6 +66,27 @@ except urllib.error.HTTPError as exc:
     assert exc.code == 400, exc.code
 else:
     raise AssertionError("array JSON payload was not rejected")
+
+outside = tempfile.mkdtemp(prefix="anyscience-outside-ui-")
+inbox = os.path.join("workspace", "inbox")
+shutil.rmtree(inbox)
+os.symlink(outside, inbox, target_is_directory=True)
+request = urllib.request.Request(
+    base + "/api/inbox",
+    data=json.dumps({"message": "must stay contained"}).encode("utf-8"),
+    headers={"Content-Type": "application/json"},
+    method="POST",
+)
+try:
+    urllib.request.urlopen(request, timeout=2)
+except urllib.error.HTTPError as exc:
+    assert exc.code == 403, exc.code
+else:
+    raise AssertionError("redirected inbox was not rejected")
+assert not os.listdir(outside)
+os.unlink(inbox)
+os.mkdir(inbox)
+shutil.rmtree(outside)
 PY
 cleanup_ui_test
 trap - EXIT
@@ -84,12 +108,52 @@ done
 bash scripts/voice/voice_status.sh >/tmp/anyscience_voice_status.log
 bash scripts/validate.sh >/tmp/anyscience_voice_validate.log
 
+printf 'fixture-audio' > "$TMP_ROOT/sample audio.wav"
+cat > "$TMP_ROOT/fake-stt.sh" <<'SH'
+#!/bin/bash
+set -euo pipefail
+[ "${PYTHONUTF8:-}" = 1 ]
+[ "${PYTHONIOENCODING:-}" = utf-8 ]
+[ "${HF_HUB_OFFLINE:-}" = 1 ]
+[ "${TRANSFORMERS_OFFLINE:-}" = 1 ]
+[ -f "$1" ]
+printf 'offline adapter transcript\n'
+SH
+chmod +x "$TMP_ROOT/fake-stt.sh"
+ANY_SCIENCE_STT_ADAPTER="$TMP_ROOT/fake-stt.sh" \
+  bash scripts/voice/stt.sh "$TMP_ROOT/sample audio.wav" | grep -q 'offline adapter transcript'
+
+mkdir -p "$TMP_ROOT/fake-bin" "$TMP_ROOT/outside-inbox"
+cat > "$TMP_ROOT/fake-bin/rec" <<'SH'
+#!/bin/bash
+set -euo pipefail
+for arg in "$@"; do
+  case "$arg" in *.wav) printf 'fixture-audio' > "$arg"; exit 0;; esac
+done
+exit 1
+SH
+chmod +x "$TMP_ROOT/fake-bin/rec"
+rm -rf workspace/inbox
+ln -s "$TMP_ROOT/outside-inbox" workspace/inbox
+if printf '\n' | PATH="$TMP_ROOT/fake-bin:$PATH" ANY_SCIENCE_STT_ADAPTER="$TMP_ROOT/fake-stt.sh" \
+  bash scripts/voice/dictate.sh 1 >/tmp/anyscience_voice_redirected_inbox.log 2>&1; then
+  echo "FAIL: voice wrote through a redirected inbox"
+  exit 1
+fi
+test -z "$(find "$TMP_ROOT/outside-inbox" -mindepth 1 -print -quit)"
+rm workspace/inbox
+mkdir -p workspace/inbox
+
 if grep -R "pip install\|curl \|wget \|git clone\|model.*download\|download.*model" scripts/voice VOICE_SPEC.md; then
   echo "FAIL: voice extension attempted or instructed automatic model downloads"
   exit 1
 fi
 if grep -R "ANY_SCIENCE_WHISPER_CMD" scripts/voice VOICE_SPEC.md; then
   echo "FAIL: voice extension retained unsafe command-string execution"
+  exit 1
+fi
+if grep -R "briefs\.log" scripts/voice VOICE_SPEC.md; then
+  echo "FAIL: voice output persists spoken text outside the inbox"
   exit 1
 fi
 grep -q 'HF_HUB_OFFLINE=1' scripts/voice/stt.sh

@@ -40,6 +40,19 @@ def workspace_path(relative):
     return full if os.path.isfile(full) else None
 
 
+def safe_inbox_path():
+    base = os.path.realpath(WS)
+    inbox = os.path.join(WS, "inbox")
+    os.makedirs(inbox, exist_ok=True)
+    resolved = os.path.realpath(inbox)
+    try:
+        if os.path.commonpath([base, resolved]) != base or resolved == base:
+            return None
+    except ValueError:
+        return None
+    return inbox
+
+
 def read_text(path):
     with open(path, encoding="utf-8", errors="replace") as stream:
         return stream.read()
@@ -216,8 +229,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(400, {"error": "message must be a non-empty string"})
         message = message.strip()
 
-        inbox = os.path.join(WS, "inbox")
-        os.makedirs(inbox, exist_ok=True)
+        inbox = safe_inbox_path()
+        if not inbox:
+            return self.send_json(403, {"error": "workspace/inbox resolves outside the workspace"})
         name = f"{time.strftime('%Y%m%d-%H%M%S')}-{os.getpid()}-{time.time_ns() % 100000}.md"
         path = os.path.join(inbox, name)
         with open(path, "w", encoding="utf-8", newline="\n") as stream:

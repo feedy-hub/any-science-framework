@@ -45,7 +45,7 @@ write_file VOICE_SPEC.md <<'EOF'
 ## Adapter Interfaces
 
 - `scripts/voice/stt.sh <audio-file>` prints recognized text to stdout and exits non-zero on failure.
-- `scripts/voice/say.sh "<brief>"` speaks a short brief and logs it to `workspace/voice/briefs.log`.
+- `scripts/voice/say.sh "<brief>"` speaks a short brief without persisting the spoken text.
 - `scripts/voice/dictate.sh [seconds]` records audio, runs STT, asks for confirmation, and writes inbox.
 
 ## Local Backend Reuse
@@ -80,8 +80,6 @@ set -euo pipefail
 TEXT=${1:-}
 [ -z "$TEXT" ] && exit 0
 TEXT=$(printf '%s' "$TEXT" | awk '{s=s (s ? " " : "") $0} END {print substr(s,1,120)}')
-mkdir -p workspace/voice
-printf '%s %s\n' "$(date +%FT%T)" "$TEXT" >> workspace/voice/briefs.log
 if command -v say >/dev/null 2>&1; then
   say -- "$TEXT" 2>/dev/null &
 elif command -v espeak-ng >/dev/null 2>&1; then
@@ -108,7 +106,8 @@ if [ -n "${ANY_SCIENCE_STT_ADAPTER:-}" ]; then
     echo "[E-VOICE-01] STT adapter is not executable: $ANY_SCIENCE_STT_ADAPTER" >&2
     exit 1
   }
-  "$ANY_SCIENCE_STT_ADAPTER" "$AUDIO"
+  PYTHONUTF8=1 PYTHONIOENCODING=utf-8 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+    "$ANY_SCIENCE_STT_ADAPTER" "$AUDIO"
   exit $?
 fi
 
@@ -208,7 +207,13 @@ case "$OK" in
 esac
 
 mkdir -p workspace/inbox
-FN="workspace/inbox/voice-$(date +%Y%m%d-%H%M%S)-$$.md"
+WORKSPACE_REAL=$(cd workspace && pwd -P)
+INBOX_REAL=$(cd workspace/inbox && pwd -P)
+if [ "$INBOX_REAL" != "$WORKSPACE_REAL/inbox" ]; then
+  echo "ERROR: workspace/inbox resolves outside the workspace; refusing to write"
+  exit 1
+fi
+FN=$(mktemp "$INBOX_REAL/voice-$(date +%Y%m%d-%H%M%S)-XXXXXX.md")
 cat > "$FN" <<MSG
 # Voice Request $(date '+%F %T')
 - status: pending

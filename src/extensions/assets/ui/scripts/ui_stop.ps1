@@ -9,7 +9,15 @@ if (-not (Test-Path -LiteralPath $PidFile -PathType Leaf)) {
     return
 }
 
-$processId = [int]([IO.File]::ReadAllText($PidFile).Trim())
+$rawMetadata = [IO.File]::ReadAllText($PidFile).Trim()
+$metadata = $null
+try { $metadata = $rawMetadata | ConvertFrom-Json } catch { }
+$metadataFields = if ($metadata) { @($metadata.PSObject.Properties.Name) } else { @() }
+$metadataValid = $metadataFields -contains 'pid' -and $metadataFields -contains 'port' -and $metadataFields -contains 'workspace' -and $metadataFields -contains 'server'
+$processId = if ($metadataValid) { [int]$metadata.pid } elseif ($rawMetadata -match '^\d+$') { [int]$rawMetadata } else { 0 }
+if (-not $processId) {
+    throw 'UI PID metadata is invalid; refusing to stop an unknown process'
+}
 $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
 if (-not $process) {
     Remove-Item -LiteralPath $PidFile -Force
@@ -18,7 +26,12 @@ if (-not $process) {
 }
 
 $cim = Get-CimInstance Win32_Process -Filter "ProcessId=$processId" -ErrorAction SilentlyContinue
-if (-not $cim -or $cim.CommandLine -notmatch 'ui[/\\]server\.py') {
+if (-not $metadataValid) {
+    throw 'Legacy UI PID metadata cannot identify the workspace safely; stop that process manually'
+}
+$expectedWorkspace = [IO.Path]::GetFullPath([string]$metadata.workspace)
+$expectedServer = [IO.Path]::GetFullPath([string]$metadata.server)
+if ($expectedWorkspace -ne $Root -or -not $cim -or $cim.CommandLine -notmatch [regex]::Escape($expectedServer)) {
     throw "PID $processId does not look like the Any Science UI server; refusing to stop it"
 }
 

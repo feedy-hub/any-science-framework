@@ -49,7 +49,7 @@ function Write-Utf8NoBom {
 }
 
 function New-WorkspaceFixture {
-    $project = Join-Path ([IO.Path]::GetTempPath()) ('anyscience-windows-smoke-' + [guid]::NewGuid().ToString('N'))
+    $project = Join-Path ([IO.Path]::GetTempPath()) ('anyscience windows 科研 smoke-' + [guid]::NewGuid().ToString('N'))
     [IO.Directory]::CreateDirectory($project) | Out-Null
     Write-Utf8NoBom (Join-Path $project 'CLAUDE.md') "# fixture`n"
     Write-Utf8NoBom (Join-Path $project 'PROTOCOL.md') "# fixture`n"
@@ -107,8 +107,12 @@ function Test-WindowsUi {
         Assert-PowerShellFile (Join-Path $project 'scripts\ui_stop.ps1')
 
         $port = Get-FreeTcpPort
+        Write-Utf8NoBom (Join-Path $project '.claude\ui.pid') ([string]$PID)
         & (Join-Path $project 'scripts\ui_start.ps1') -Port $port -NoBrowser
         $started = $true
+        $uiMetadata = [IO.File]::ReadAllText((Join-Path $project '.claude\ui.pid')) | ConvertFrom-Json
+        Assert-True ([int]$uiMetadata.port -eq $port) 'UI metadata did not preserve the actual port'
+        Assert-True ([IO.Path]::GetFullPath([string]$uiMetadata.workspace) -eq [IO.Path]::GetFullPath($project)) 'UI metadata did not preserve the workspace'
 
         $overview = Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/overview" -TimeoutSec 3
         Assert-True ($overview.cards.Count -eq 1) 'UI overview did not return the fixture card'
@@ -127,6 +131,24 @@ function Test-WindowsUi {
         $response = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$port/api/inbox" -ContentType 'application/json' -Body '{"message":"native request"}' -TimeoutSec 3
         Assert-True ([bool]$response.ok) 'valid inbox request was rejected'
         Assert-True (Test-Path -LiteralPath (Join-Path $project ($response.file -replace '/', '\'))) 'inbox response referenced a missing file'
+
+        $outsideInbox = Join-Path ([IO.Path]::GetTempPath()) ('anyscience-outside-ui-' + [guid]::NewGuid().ToString('N'))
+        [IO.Directory]::CreateDirectory($outsideInbox) | Out-Null
+        $workspaceInbox = Join-Path $project 'workspace\inbox'
+        Remove-Item -LiteralPath $workspaceInbox -Recurse -Force
+        New-Item -ItemType Junction -Path $workspaceInbox -Target $outsideInbox | Out-Null
+        try {
+            $junctionStatus = Get-HttpFailureStatus {
+                Invoke-WebRequest -UseBasicParsing -Method Post -Uri "http://127.0.0.1:$port/api/inbox" -ContentType 'application/json' -Body '{"message":"must stay contained"}' -TimeoutSec 3
+            }
+            Assert-True ($junctionStatus -eq 403) "redirected UI inbox returned HTTP $junctionStatus instead of 403"
+            Assert-True (@(Get-ChildItem -LiteralPath $outsideInbox -Force).Count -eq 0) 'UI wrote through an inbox junction'
+        }
+        finally {
+            [IO.Directory]::Delete($workspaceInbox)
+            [IO.Directory]::CreateDirectory($workspaceInbox) | Out-Null
+            Remove-Item -LiteralPath $outsideInbox -Recurse -Force
+        }
     }
     finally {
         if ($started -and (Test-Path -LiteralPath (Join-Path $project 'scripts\ui_stop.ps1'))) {
@@ -157,6 +179,8 @@ function Test-WindowsVoice {
             $content = [IO.File]::ReadAllText($path)
             Assert-True ($content -notmatch '(?i)Invoke-Expression|\bcurl\b|\bwget\b|pip\s+install|huggingface-cli|Start-BitsTransfer') "$relative contains a forbidden execution or download command"
         }
+        $sayContent = [IO.File]::ReadAllText((Join-Path $project 'scripts\voice\say.ps1'))
+        Assert-True ($sayContent -notmatch 'briefs\.log|AppendAllText') 'say.ps1 persists spoken text outside the inbox'
 
         $audio = Join-Path $project 'workspace\voice\sample audio.wav'
         Write-Utf8NoBom $audio 'fixture-audio'
@@ -166,15 +190,41 @@ param([Parameter(Mandatory = $true)][string]$AudioFile)
 if (-not (Test-Path -LiteralPath $AudioFile -PathType Leaf)) {
     throw "adapter received an invalid audio path: $AudioFile"
 }
+if ($env:PYTHONUTF8 -ne '1' -or $env:PYTHONIOENCODING -ne 'utf-8' -or $env:HF_HUB_OFFLINE -ne '1' -or $env:TRANSFORMERS_OFFLINE -ne '1') {
+    throw 'adapter did not inherit UTF-8 and offline environment guards'
+}
 Write-Output "transcribed from $([IO.Path]::GetFileName($AudioFile))"
 '@
 
         & (Join-Path $project 'scripts\voice\dictate.ps1') -AudioFile $audio -AdapterPath $adapter -AutoConfirm
+        & (Join-Path $project 'scripts\voice\dictate.ps1') -AudioFile $audio -AdapterPath $adapter -AutoConfirm
         $inboxFiles = @(Get-ChildItem -LiteralPath (Join-Path $project 'workspace\inbox') -File -Filter 'voice-*.md')
-        Assert-True ($inboxFiles.Count -eq 1) 'dictation did not create exactly one inbox file'
+        Assert-True ($inboxFiles.Count -eq 2) 'two immediate dictations did not create two distinct inbox files'
         $inboxText = [IO.File]::ReadAllText($inboxFiles[0].FullName, [Text.Encoding]::UTF8)
         Assert-True ($inboxText.Contains('- source: voice')) 'voice inbox file lacks source marker'
         Assert-True ($inboxText.Contains('transcribed from sample audio.wav')) 'adapter transcript or spaced path was lost'
+
+        $outsideInbox = Join-Path ([IO.Path]::GetTempPath()) ('anyscience-outside-voice-' + [guid]::NewGuid().ToString('N'))
+        [IO.Directory]::CreateDirectory($outsideInbox) | Out-Null
+        $workspaceInbox = Join-Path $project 'workspace\inbox'
+        Remove-Item -LiteralPath $workspaceInbox -Recurse -Force
+        New-Item -ItemType Junction -Path $workspaceInbox -Target $outsideInbox | Out-Null
+        try {
+            $junctionRejected = $false
+            try {
+                & (Join-Path $project 'scripts\voice\dictate.ps1') -AudioFile $audio -AdapterPath $adapter -AutoConfirm | Out-Null
+            }
+            catch {
+                $junctionRejected = $_.Exception.Message -match 'inbox|workspace|reparse|junction'
+            }
+            Assert-True $junctionRejected 'Voice did not reject an inbox junction'
+            Assert-True (@(Get-ChildItem -LiteralPath $outsideInbox -Force).Count -eq 0) 'Voice wrote through an inbox junction'
+        }
+        finally {
+            [IO.Directory]::Delete($workspaceInbox)
+            [IO.Directory]::CreateDirectory($workspaceInbox) | Out-Null
+            Remove-Item -LiteralPath $outsideInbox -Recurse -Force
+        }
 
         $emptyCache = Join-Path $project 'workspace\voice\empty-model-cache'
         [IO.Directory]::CreateDirectory($emptyCache) | Out-Null
@@ -187,6 +237,35 @@ Write-Output "transcribed from $([IO.Path]::GetFileName($AudioFile))"
         }
         Assert-True $offlineFailed 'STT did not fail safely when the local model cache was empty'
         Assert-True (@(Get-ChildItem -LiteralPath $emptyCache -Force).Count -eq 0) 'STT wrote into an empty model cache'
+
+        $ffmpegDirectory = Join-Path $project 'workspace\voice\custom ffmpeg'
+        [IO.Directory]::CreateDirectory($ffmpegDirectory) | Out-Null
+        $fakeFfmpeg = Join-Path $ffmpegDirectory 'ffmpeg.cmd'
+        Write-Utf8NoBom $fakeFfmpeg "@exit /b 0`n"
+        $fakeModel = Join-Path $project 'workspace\voice\fake-model.pt'
+        Write-Utf8NoBom $fakeModel 'model-fixture'
+        $fakeWhisper = Join-Path $project 'workspace\voice\fake-whisper.ps1'
+        Write-Utf8NoBom $fakeWhisper @'
+$expectedFfmpegDirectory = Split-Path -Parent $env:ANY_SCIENCE_FFMPEG
+$pathHead = ($env:Path -split ';')[0]
+if ($pathHead -ne $expectedFfmpegDirectory) {
+    throw "custom ffmpeg directory was not propagated to Whisper PATH: $pathHead"
+}
+$outputIndex = [Array]::IndexOf($args, '--output_dir')
+if ($outputIndex -lt 0) { throw 'Whisper output directory argument is missing' }
+$outputDirectory = $args[$outputIndex + 1]
+[IO.Directory]::CreateDirectory($outputDirectory) | Out-Null
+[IO.File]::WriteAllText((Join-Path $outputDirectory 'fake.txt'), 'ffmpeg path propagated', [Text.UTF8Encoding]::new($false))
+'@
+        $oldFfmpeg = $env:ANY_SCIENCE_FFMPEG
+        $env:ANY_SCIENCE_FFMPEG = $fakeFfmpeg
+        try {
+            $fakeWhisperOutput = & (Join-Path $project 'scripts\voice\stt.ps1') -AudioFile $audio -WhisperExecutable $fakeWhisper -Model $fakeModel
+            Assert-True ($fakeWhisperOutput -eq 'ffmpeg path propagated') 'Whisper did not run with the configured FFmpeg directory'
+        }
+        finally {
+            if ($null -eq $oldFfmpeg) { Remove-Item Env:ANY_SCIENCE_FFMPEG -ErrorAction SilentlyContinue } else { $env:ANY_SCIENCE_FFMPEG = $oldFfmpeg }
+        }
 
         $statusJson = & (Join-Path $project 'scripts\voice\voice_status.ps1') -AsJson
         $status = $statusJson | ConvertFrom-Json
