@@ -26,6 +26,47 @@ bash -n scripts/ui_start.sh
 bash -n scripts/ui_stop.sh
 bash scripts/validate.sh >/tmp/anyscience_ui_validate.log
 
+UI_TEST_PORT=18322
+ANY_SCIENCE_UI_PORT=$UI_TEST_PORT python3 ui/server.py >/tmp/anyscience_ui_server.log 2>&1 &
+UI_TEST_PID=$!
+cleanup_ui_test() {
+  kill "$UI_TEST_PID" >/dev/null 2>&1 || true
+}
+trap cleanup_ui_test EXIT
+python3 - "$UI_TEST_PORT" <<'PY'
+import json
+import sys
+import time
+import urllib.error
+import urllib.request
+
+port = int(sys.argv[1])
+base = f"http://127.0.0.1:{port}"
+for _ in range(50):
+    try:
+        urllib.request.urlopen(base + "/api/overview", timeout=1).read()
+        break
+    except OSError:
+        time.sleep(0.1)
+else:
+    raise AssertionError("UI server did not become ready")
+
+request = urllib.request.Request(
+    base + "/api/inbox",
+    data=json.dumps([]).encode("utf-8"),
+    headers={"Content-Type": "application/json"},
+    method="POST",
+)
+try:
+    urllib.request.urlopen(request, timeout=2)
+except urllib.error.HTTPError as exc:
+    assert exc.code == 400, exc.code
+else:
+    raise AssertionError("array JSON payload was not rejected")
+PY
+cleanup_ui_test
+trap - EXIT
+
 python3 - <<'PY'
 from pathlib import Path
 server = Path("ui/server.py").read_text(encoding="utf-8")

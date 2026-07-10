@@ -26,6 +26,17 @@ for ext in "$ROOT"/src/extensions/*.sh; do
   [ -f "$ext" ] || continue
   copy_release "$ext" "$ROOT/dist/extensions/$(basename "$ext")"
 done
+for ext in "$ROOT"/src/extensions/*.ps1; do
+  [ -f "$ext" ] || continue
+  copy_release "$ext" "$ROOT/dist/extensions/$(basename "$ext")"
+done
+
+if [ -d "$ROOT/src/extensions/assets" ]; then
+  while IFS= read -r -d '' asset; do
+    rel=${asset#"$ROOT/src/extensions/assets/"}
+    copy_release "$asset" "$ROOT/dist/extensions/assets/$rel"
+  done < <(find "$ROOT/src/extensions/assets" -type f -print0)
+fi
 
 bash -n "$ROOT/dist/setup.sh"
 bash -n "$ROOT/dist/setup_test.sh"
