@@ -83,6 +83,7 @@ STATUS_ORDER = [
     "ANALYZED", "ITERATE", "PROMOTE", "KILLED",
 ]
 PASS_REQUIRED = ["APPROVED", "RUNNING", "ANALYZED", "PROMOTE"]
+MAX_BODY_BYTES = 20_000
 
 
 def workspace_path(rel):
@@ -257,16 +258,25 @@ class Handler(BaseHTTPRequestHandler):
         if urlparse(self.path).path != "/api/inbox":
             return self.send_json(404, {"error": "the only write endpoint is /api/inbox"})
 
-        size = int(self.headers.get("Content-Length", "0"))
-        if size > 20000:
+        raw_size = self.headers.get("Content-Length")
+        try:
+            size = int(raw_size)
+        except (TypeError, ValueError):
+            return self.send_json(411, {"error": "valid Content-Length required"})
+        if size < 0:
+            return self.send_json(400, {"error": "Content-Length must not be negative"})
+        if size > MAX_BODY_BYTES:
             return self.send_json(413, {"error": "message too large"})
         try:
             payload = json.loads(self.rfile.read(size))
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, UnicodeDecodeError):
             return self.send_json(400, {"error": "expected JSON body"})
-        message = str(payload.get("message", "")).strip()
-        if not message:
-            return self.send_json(400, {"error": "message is empty"})
+        if not isinstance(payload, dict):
+            return self.send_json(400, {"error": "expected a JSON object"})
+        message = payload.get("message")
+        if not isinstance(message, str) or not message.strip():
+            return self.send_json(400, {"error": "message must be a non-empty string"})
+        message = message.strip()
 
         inbox = os.path.join(WS, "inbox")
         os.makedirs(inbox, exist_ok=True)
@@ -321,6 +331,8 @@ write_file ui/static/index.html <<'EOF'
     pre { white-space:pre-wrap; background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:10px; }
     textarea { width:100%; min-height:110px; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:8px; }
     table { border-collapse:collapse; } td, th { border:1px solid var(--line); padding:4px 8px; }
+    #error { display:none; margin:0; padding:8px 16px; color:var(--red); border-bottom:1px solid var(--line); }
+    @media (max-width:760px) { nav .hint { display:none; } main { padding:10px; } #detail { width:100vw; } }
   </style>
 </head>
 <body>
@@ -331,6 +343,7 @@ write_file ui/static/index.html <<'EOF'
     <button data-tab="inbox">发指令</button>
     <span class="hint" style="margin-left:auto">只读投影；写入仅进入 inbox</span>
   </nav>
+  <p id="error"></p>
   <main>
     <section id="board" class="tab board"></section>
     <section id="knowledge" class="tab" style="display:none"></section>
@@ -345,18 +358,31 @@ write_file ui/static/index.html <<'EOF'
   <script>
     const $ = s => document.querySelector(s);
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    async function api(url, options) {
+      try {
+        const response = await fetch(url, options);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+        $('#error').style.display = 'none';
+        return data;
+      } catch (error) {
+        $('#error').textContent = `连接失败：${error.message}`;
+        $('#error').style.display = 'block';
+        throw error;
+      }
+    }
     document.querySelectorAll('nav button').forEach(button => button.onclick = () => {
       document.querySelectorAll('nav button').forEach(x => x.classList.remove('on'));
       button.classList.add('on');
       document.querySelectorAll('.tab').forEach(x => x.style.display = 'none');
       const tab = $('#' + button.dataset.tab);
       tab.style.display = button.dataset.tab === 'board' ? 'flex' : 'block';
-      load(button.dataset.tab);
+      load(button.dataset.tab).catch(() => {});
     });
     $('#close').onclick = () => $('#detail').style.display = 'none';
     $('#board').addEventListener('click', event => {
       const item = event.target.closest('.item');
-      if (item) openDetail(item.dataset.path);
+      if (item) openDetail(item.dataset.path).catch(() => {});
     });
     function cardHtml(card) {
       const errors = card.errors || [];
@@ -367,7 +393,7 @@ write_file ui/static/index.html <<'EOF'
     }
     async function load(tab) {
       if (tab === 'board') {
-        const data = await (await fetch('/api/overview')).json();
+        const data = await api('/api/overview');
         let html = data.status_order.map(status => {
           const cards = data.cards.filter(card => card.status === status);
           return `<div class="col"><h3>${esc(status)} (${cards.length})</h3>${cards.map(cardHtml).join('')}</div>`;
@@ -376,15 +402,15 @@ write_file ui/static/index.html <<'EOF'
         if (invalid.length) html += `<div class="col"><h3>协议异常</h3>${invalid.map(cardHtml).join('')}</div>`;
         $('#board').innerHTML = html;
       } else if (tab === 'knowledge') {
-        const data = await (await fetch('/api/knowledge')).json();
+        const data = await api('/api/knowledge');
         $('#knowledge').innerHTML = `<h3>Insights</h3><pre>${esc(data.insights.join(''))}</pre><h3>Graveyard</h3><pre>${esc(data.graveyard.join(''))}</pre>`;
       } else if (tab === 'hooks') {
-        const data = await (await fetch('/api/hooks')).json();
+        const data = await api('/api/hooks');
         $('#hooks').innerHTML = `<pre>${esc(data.log.join(''))}</pre>`;
       }
     }
     async function openDetail(path) {
-      const data = await (await fetch('/api/detail?path=' + encodeURIComponent(path))).json();
+      const data = await api('/api/detail?path=' + encodeURIComponent(path));
       let html = `<pre>${esc(data.content || data.error || '')}</pre>`;
       if (data.metrics) {
         html += '<h3>metrics.json</h3><table><tr><th>方法</th><th>指标</th></tr>' +
@@ -398,15 +424,22 @@ write_file ui/static/index.html <<'EOF'
       $('#detail').style.display = 'block';
     }
     $('#send').onclick = async () => {
-      const response = await (await fetch('/api/inbox', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({message: $('#message').value})
-      })).json();
-      $('#result').textContent = response.ok ? `已保存到 ${response.file}` : `失败：${response.error}`;
-      if (response.ok) $('#message').value = '';
+      $('#send').disabled = true;
+      try {
+        const response = await api('/api/inbox', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({message: $('#message').value})
+        });
+        $('#result').textContent = `已保存到 ${response.file}`;
+        $('#message').value = '';
+      } catch (error) {
+        $('#result').textContent = `失败：${error.message}`;
+      } finally {
+        $('#send').disabled = false;
+      }
     };
-    load('board');
+    load('board').catch(() => {});
   </script>
 </body>
 </html>
@@ -490,4 +523,3 @@ bash -n scripts/ui_start.sh
 bash -n scripts/ui_stop.sh
 bash scripts/validate.sh >/dev/null
 echo "OK: UI extension installed. Start with: bash scripts/ui_start.sh"
-

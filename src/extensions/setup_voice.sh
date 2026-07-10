@@ -50,21 +50,24 @@ write_file VOICE_SPEC.md <<'EOF'
 
 ## Local Backend Reuse
 
-The installer checks only for local executables:
+The installer checks only for local executables and complete local model files:
 
-- STT: `ANY_SCIENCE_WHISPER_CMD`, `whisper-cli`, `whisper`, or `faster-whisper`
+- STT adapter: `ANY_SCIENCE_STT_ADAPTER` (an executable path)
+- OpenAI Whisper: `ANY_SCIENCE_WHISPER_EXE` plus `ANY_SCIENCE_WHISPER_MODEL` or a `.pt` file in `ANY_SCIENCE_WHISPER_CACHE`
+- whisper.cpp: `whisper-cli` plus `ANY_SCIENCE_WHISPER_CPP_MODEL`
+- faster-whisper: `faster-whisper` plus `ANY_SCIENCE_FASTER_WHISPER_MODEL` pointing to a local model directory
 - Recording: `rec`, `arecord`, or `ffmpeg`
 - TTS: macOS `say`, Linux `espeak-ng` / `espeak`, or WSL `powershell.exe` SAPI
 
 If none are present, the adapter reports a clear error and does not try to install anything.
 
-If your local model is already wired to a custom command, set:
+If your local adapter is already executable, set its path:
 
 ```bash
-export ANY_SCIENCE_WHISPER_CMD='whisper --language zh --output_format txt'
+export ANY_SCIENCE_STT_ADAPTER=/absolute/path/to/local-stt-adapter
 ```
 
-The adapter will append the audio file path as the final argument.
+The adapter receives the audio file path as its only argument.
 
 ## Briefing Rule
 
@@ -76,7 +79,7 @@ write_file scripts/voice/say.sh <<'EOF'
 set -euo pipefail
 TEXT=${1:-}
 [ -z "$TEXT" ] && exit 0
-TEXT=$(printf '%s' "$TEXT" | awk '{s=s $0} END {print substr(s,1,120)}')
+TEXT=$(printf '%s' "$TEXT" | awk '{s=s (s ? " " : "") $0} END {print substr(s,1,120)}')
 mkdir -p workspace/voice
 printf '%s %s\n' "$(date +%FT%T)" "$TEXT" >> workspace/voice/briefs.log
 if command -v say >/dev/null 2>&1; then
@@ -100,40 +103,64 @@ set -euo pipefail
 AUDIO=${1:?usage: stt.sh <audio-file>}
 [ -f "$AUDIO" ] || { echo "[E-VOICE-02] audio file not found: $AUDIO" >&2; exit 1; }
 
-if [ -n "${ANY_SCIENCE_WHISPER_CMD:-}" ]; then
-  TMP=$(mktemp -d /tmp/anyscience-custom-whisper.XXXXXX)
-  trap 'rm -rf "$TMP"' EXIT
-  # shellcheck disable=SC2086
-  $ANY_SCIENCE_WHISPER_CMD --output_dir "$TMP" "$AUDIO" >/dev/null 2>&1 || {
-    # shellcheck disable=SC2086
-    $ANY_SCIENCE_WHISPER_CMD "$AUDIO"
-    exit $?
+if [ -n "${ANY_SCIENCE_STT_ADAPTER:-}" ]; then
+  [ -x "$ANY_SCIENCE_STT_ADAPTER" ] || {
+    echo "[E-VOICE-01] STT adapter is not executable: $ANY_SCIENCE_STT_ADAPTER" >&2
+    exit 1
   }
-  if ls "$TMP"/*.txt >/dev/null 2>&1; then
-    cat "$TMP"/*.txt
-  fi
-  exit 0
-fi
-
-if command -v whisper-cli >/dev/null 2>&1; then
-  whisper-cli -f "$AUDIO" -l zh --no-timestamps 2>/dev/null
+  "$ANY_SCIENCE_STT_ADAPTER" "$AUDIO"
   exit $?
 fi
 
-if command -v whisper >/dev/null 2>&1; then
+if command -v whisper-cli >/dev/null 2>&1 && [ -n "${ANY_SCIENCE_WHISPER_CPP_MODEL:-}" ]; then
+  [ -f "$ANY_SCIENCE_WHISPER_CPP_MODEL" ] || {
+    echo "[E-VOICE-01] whisper.cpp model file not found: $ANY_SCIENCE_WHISPER_CPP_MODEL" >&2
+    exit 1
+  }
+  whisper-cli -m "$ANY_SCIENCE_WHISPER_CPP_MODEL" -f "$AUDIO" -l zh --no-timestamps 2>/dev/null
+  exit $?
+fi
+
+WHISPER_EXE=${ANY_SCIENCE_WHISPER_EXE:-}
+if [ -z "$WHISPER_EXE" ] && command -v whisper >/dev/null 2>&1; then
+  WHISPER_EXE=$(command -v whisper)
+fi
+if [ -n "$WHISPER_EXE" ]; then
+  [ -x "$WHISPER_EXE" ] || { echo "[E-VOICE-01] Whisper executable not found: $WHISPER_EXE" >&2; exit 1; }
+  CACHE=${ANY_SCIENCE_WHISPER_CACHE:-"$HOME/.cache/whisper"}
+  MODEL=${ANY_SCIENCE_WHISPER_MODEL:-}
+  if [ -n "$MODEL" ] && [ ! -f "$MODEL" ]; then
+    case "$MODEL" in *.pt) ;; *) MODEL="$MODEL.pt";; esac
+    MODEL="$CACHE/$MODEL"
+  fi
+  if [ -z "$MODEL" ]; then
+    for name in turbo.pt large-v3.pt large-v2.pt large.pt medium.pt small.pt base.pt tiny.pt; do
+      if [ -f "$CACHE/$name" ]; then MODEL="$CACHE/$name"; break; fi
+    done
+  fi
+  [ -f "$MODEL" ] || {
+    echo "[E-VOICE-01] No complete local Whisper model in: $CACHE" >&2
+    exit 1
+  }
   TMP=$(mktemp -d /tmp/anyscience-whisper.XXXXXX)
   trap 'rm -rf "$TMP"' EXIT
-  whisper "$AUDIO" --language zh --output_format txt --output_dir "$TMP" >/dev/null 2>&1
+  PYTHONUTF8=1 PYTHONIOENCODING=utf-8 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+    "$WHISPER_EXE" "$AUDIO" --model "$MODEL" --language zh --output_format txt --output_dir "$TMP" --verbose False >/dev/null 2>&1
   cat "$TMP"/*.txt
   exit 0
 fi
 
-if command -v faster-whisper >/dev/null 2>&1; then
-  faster-whisper "$AUDIO" --language zh 2>/dev/null
+if command -v faster-whisper >/dev/null 2>&1 && [ -n "${ANY_SCIENCE_FASTER_WHISPER_MODEL:-}" ]; then
+  [ -d "$ANY_SCIENCE_FASTER_WHISPER_MODEL" ] || {
+    echo "[E-VOICE-01] faster-whisper local model directory not found: $ANY_SCIENCE_FASTER_WHISPER_MODEL" >&2
+    exit 1
+  }
+  HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+    faster-whisper "$AUDIO" --model "$ANY_SCIENCE_FASTER_WHISPER_MODEL" --language zh 2>/dev/null
   exit $?
 fi
 
-echo "[E-VOICE-01] no local STT backend found. Reuse an existing local whisper backend or set ANY_SCIENCE_WHISPER_CMD." >&2
+echo "[E-VOICE-01] no offline STT backend is ready. Run voice_status.sh and configure an executable plus a complete local model." >&2
 exit 1
 EOF
 
@@ -202,10 +229,22 @@ for cmd in rec arecord ffmpeg; do
   if command -v "$cmd" >/dev/null 2>&1; then echo "  OK $cmd"; else echo "  -- $cmd"; fi
 done
 echo "STT backend:"
-if [ -n "${ANY_SCIENCE_WHISPER_CMD:-}" ]; then echo "  OK ANY_SCIENCE_WHISPER_CMD"; else echo "  -- ANY_SCIENCE_WHISPER_CMD"; fi
+if [ -n "${ANY_SCIENCE_STT_ADAPTER:-}" ] && [ -x "$ANY_SCIENCE_STT_ADAPTER" ]; then echo "  OK adapter: $ANY_SCIENCE_STT_ADAPTER"; else echo "  -- ANY_SCIENCE_STT_ADAPTER"; fi
 for cmd in whisper-cli whisper faster-whisper; do
   if command -v "$cmd" >/dev/null 2>&1; then echo "  OK $cmd"; else echo "  -- $cmd"; fi
 done
+echo "Local OpenAI Whisper models:"
+CACHE=${ANY_SCIENCE_WHISPER_CACHE:-"$HOME/.cache/whisper"}
+found=0
+for model in "$CACHE"/*.pt; do
+  [ -f "$model" ] || continue
+  echo "  OK $model"
+  found=1
+done
+[ "$found" -eq 1 ] || echo "  -- none in $CACHE"
+case "$(uname -r 2>/dev/null | tr '[:upper:]' '[:lower:]')" in
+  *microsoft*) echo "  WARN WSL uses Linux audio paths. Prefer setup_voice.ps1 for Windows microphones and Windows Whisper.";;
+esac
 echo "TTS backend:"
 for cmd in say espeak-ng espeak powershell.exe; do
   if command -v "$cmd" >/dev/null 2>&1; then echo "  OK $cmd"; else echo "  -- $cmd"; fi

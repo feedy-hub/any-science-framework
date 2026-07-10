@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Any Science</title>
+  <style>
+    :root { --bg:#111318; --panel:#1d2129; --line:#343b49; --fg:#e6e8ee; --dim:#9aa3b7; --blue:#58a6ff; --red:#ff6b6b; --green:#56d364; --orange:#e3b341; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 system-ui,sans-serif; }
+    nav { display:flex; gap:8px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line); overflow-x:auto; }
+    button { border:1px solid var(--line); background:transparent; color:var(--fg); border-radius:6px; padding:7px 12px; cursor:pointer; white-space:nowrap; }
+    button.on { border-color:var(--blue); color:var(--blue); }
+    main { padding:16px; }
+    .hint { color:var(--dim); font-size:12px; }
+    .board { display:flex; gap:10px; overflow-x:auto; align-items:flex-start; }
+    .col { min-width:210px; max-width:260px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px; }
+    .col h3 { margin:4px 6px 10px; font-size:12px; color:var(--dim); }
+    .item { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:8px; margin-bottom:8px; cursor:pointer; }
+    .item:hover { border-color:var(--blue); }
+    .badge { display:inline-block; margin-top:6px; border-radius:999px; padding:1px 7px; font-size:11px; }
+    .PENDING { color:var(--dim); background:#30363d; } .PASS { color:var(--green); background:#16351f; } .REVISE { color:var(--orange); background:#33270d; }
+    .ERR { color:var(--red); background:#3a171b; }
+    #detail { position:fixed; inset:0 0 0 auto; width:min(720px,50vw); display:none; overflow:auto; background:var(--panel); border-left:1px solid var(--line); padding:16px; }
+    pre { white-space:pre-wrap; overflow-wrap:anywhere; background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:10px; }
+    textarea { width:100%; min-height:110px; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:8px; }
+    table { border-collapse:collapse; width:100%; } td,th { border:1px solid var(--line); padding:4px 8px; overflow-wrap:anywhere; }
+    #error { display:none; margin:0; padding:8px 16px; color:var(--red); border-bottom:1px solid var(--line); }
+    @media (max-width:760px) { nav .hint { display:none; } main { padding:10px; } #detail { width:100vw; } }
+  </style>
+</head>
+<body>
+  <nav>
+    <button data-tab="board" class="on">看板</button>
+    <button data-tab="knowledge">知识库</button>
+    <button data-tab="hooks">门禁日志</button>
+    <button data-tab="inbox">发指令</button>
+    <span class="hint" style="margin-left:auto">只读投影；写入仅进入 inbox</span>
+  </nav>
+  <p id="error"></p>
+  <main>
+    <section id="board" class="tab board"></section>
+    <section id="knowledge" class="tab" style="display:none"></section>
+    <section id="hooks" class="tab" style="display:none"></section>
+    <section id="inbox" class="tab" style="display:none">
+      <p class="hint">这里的内容只会写入 workspace/inbox/，仍需按正常流程审查。</p>
+      <textarea id="message" placeholder="例：请把 IDEA-003 推进到实验设计"></textarea>
+      <p><button id="send">提交到 inbox</button> <span id="result" class="hint"></span></p>
+    </section>
+  </main>
+  <aside id="detail"><p style="text-align:right"><button id="close">关闭</button></p><div id="detailBody"></div></aside>
+  <script>
+    const $ = selector => document.querySelector(selector);
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    async function api(url, options) {
+      try {
+        const response = await fetch(url, options);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+        $('#error').style.display = 'none';
+        return data;
+      } catch (error) {
+        $('#error').textContent = `连接失败：${error.message}`;
+        $('#error').style.display = 'block';
+        throw error;
+      }
+    }
+    document.querySelectorAll('nav button').forEach(button => button.onclick = () => {
+      document.querySelectorAll('nav button').forEach(item => item.classList.remove('on'));
+      button.classList.add('on');
+      document.querySelectorAll('.tab').forEach(item => item.style.display = 'none');
+      const tab = $('#' + button.dataset.tab);
+      tab.style.display = button.dataset.tab === 'board' ? 'flex' : 'block';
+      load(button.dataset.tab).catch(() => {});
+    });
+    $('#close').onclick = () => $('#detail').style.display = 'none';
+    $('#board').addEventListener('click', event => {
+      const item = event.target.closest('.item');
+      if (item) openDetail(item.dataset.path).catch(() => {});
+    });
+    function cardHtml(card) {
+      const errors = card.errors || [];
+      const badge = errors.length
+        ? `<span class="badge ERR">${esc(errors.join(','))} -> validate.sh</span>`
+        : `<span class="badge ${esc(card.review)}">REVIEW: ${esc(card.review)}</span>`;
+      return `<div class="item" data-path="${esc(card.path)}">${esc(card.title)}<br>${badge}</div>`;
+    }
+    async function load(tab) {
+      if (tab === 'board') {
+        const data = await api('/api/overview');
+        let html = data.status_order.map(status => {
+          const cards = data.cards.filter(card => card.status === status);
+          return `<div class="col"><h3>${esc(status)} (${cards.length})</h3>${cards.map(cardHtml).join('')}</div>`;
+        }).join('');
+        const invalid = data.cards.filter(card => (card.errors || []).length || !card.status);
+        if (invalid.length) html += `<div class="col"><h3>协议异常</h3>${invalid.map(cardHtml).join('')}</div>`;
+        $('#board').innerHTML = html;
+      } else if (tab === 'knowledge') {
+        const data = await api('/api/knowledge');
+        $('#knowledge').innerHTML = `<h3>Insights</h3><pre>${esc(data.insights.join(''))}</pre><h3>Graveyard</h3><pre>${esc(data.graveyard.join(''))}</pre>`;
+      } else if (tab === 'hooks') {
+        const data = await api('/api/hooks');
+        $('#hooks').innerHTML = `<pre>${esc(data.log.join(''))}</pre>`;
+      }
+    }
+    async function openDetail(path) {
+      const data = await api('/api/detail?path=' + encodeURIComponent(path));
+      let html = `<pre>${esc(data.content || '')}</pre>`;
+      if (data.metrics) {
+        html += '<h3>metrics.json</h3><table><tr><th>方法</th><th>指标</th></tr>' +
+          Object.entries(data.metrics).filter(([key]) => key !== '_meta').map(([key,value]) =>
+            `<tr><td>${esc(key)}</td><td>${esc(Object.entries(value).map(([k,v]) => k + '=' + JSON.stringify(v)).join('  '))}</td></tr>`
+          ).join('') + '</table>';
+      }
+      if (data.metrics_error) html += `<p class="badge ERR">${esc(data.metrics_error)}</p>`;
+      if (data.run_log_tail?.length) html += `<h3>run.log tail</h3><pre>${esc(data.run_log_tail.join(''))}</pre>`;
+      $('#detailBody').innerHTML = html;
+      $('#detail').style.display = 'block';
+    }
+    $('#send').onclick = async () => {
+      $('#send').disabled = true;
+      try {
+        const response = await api('/api/inbox', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:$('#message').value})});
+        $('#result').textContent = `已保存到 ${response.file}`;
+        $('#message').value = '';
+      } catch (error) {
+        $('#result').textContent = `失败：${error.message}`;
+      } finally {
+        $('#send').disabled = false;
+      }
+    };
+    load('board').catch(() => {});
+  </script>
+</body>
+</html>

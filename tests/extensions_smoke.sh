@@ -88,6 +88,13 @@ if grep -R "pip install\|curl \|wget \|git clone\|model.*download\|download.*mod
   echo "FAIL: voice extension attempted or instructed automatic model downloads"
   exit 1
 fi
+if grep -R "ANY_SCIENCE_WHISPER_CMD" scripts/voice VOICE_SPEC.md; then
+  echo "FAIL: voice extension retained unsafe command-string execution"
+  exit 1
+fi
+grep -q 'HF_HUB_OFFLINE=1' scripts/voice/stt.sh
+grep -q 'TRANSFORMERS_OFFLINE=1' scripts/voice/stt.sh
+grep -q 'No complete local Whisper model' scripts/voice/stt.sh
 
 cd "$ROOT"
 rm -rf "$TMP_ROOT"

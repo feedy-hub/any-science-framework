@@ -138,6 +138,67 @@ function Test-WindowsUi {
     }
 }
 
+function Test-WindowsVoice {
+    param([Parameter(Mandatory = $true)][string]$Installer)
+
+    $project = New-WorkspaceFixture
+    try {
+        & $Installer -WorkspacePath $project
+
+        $voiceScripts = @(
+            'scripts\voice\say.ps1',
+            'scripts\voice\stt.ps1',
+            'scripts\voice\dictate.ps1',
+            'scripts\voice\voice_status.ps1'
+        )
+        foreach ($relative in $voiceScripts) {
+            $path = Join-Path $project $relative
+            Assert-PowerShellFile $path
+            $content = [IO.File]::ReadAllText($path)
+            Assert-True ($content -notmatch '(?i)Invoke-Expression|\bcurl\b|\bwget\b|pip\s+install|huggingface-cli|Start-BitsTransfer') "$relative contains a forbidden execution or download command"
+        }
+
+        $audio = Join-Path $project 'workspace\voice\sample audio.wav'
+        Write-Utf8NoBom $audio 'fixture-audio'
+        $adapter = Join-Path $project 'workspace\voice\fake adapter.ps1'
+        Write-Utf8NoBom $adapter @'
+param([Parameter(Mandatory = $true)][string]$AudioFile)
+if (-not (Test-Path -LiteralPath $AudioFile -PathType Leaf)) {
+    throw "adapter received an invalid audio path: $AudioFile"
+}
+Write-Output "transcribed from $([IO.Path]::GetFileName($AudioFile))"
+'@
+
+        & (Join-Path $project 'scripts\voice\dictate.ps1') -AudioFile $audio -AdapterPath $adapter -AutoConfirm
+        $inboxFiles = @(Get-ChildItem -LiteralPath (Join-Path $project 'workspace\inbox') -File -Filter 'voice-*.md')
+        Assert-True ($inboxFiles.Count -eq 1) 'dictation did not create exactly one inbox file'
+        $inboxText = [IO.File]::ReadAllText($inboxFiles[0].FullName, [Text.Encoding]::UTF8)
+        Assert-True ($inboxText.Contains('- source: voice')) 'voice inbox file lacks source marker'
+        Assert-True ($inboxText.Contains('transcribed from sample audio.wav')) 'adapter transcript or spaced path was lost'
+
+        $emptyCache = Join-Path $project 'workspace\voice\empty-model-cache'
+        [IO.Directory]::CreateDirectory($emptyCache) | Out-Null
+        $offlineFailed = $false
+        try {
+            & (Join-Path $project 'scripts\voice\stt.ps1') -AudioFile $audio -ModelCachePath $emptyCache 2>$null | Out-Null
+        }
+        catch {
+            $offlineFailed = $_.Exception.Message -match 'local.*model|model.*cache'
+        }
+        Assert-True $offlineFailed 'STT did not fail safely when the local model cache was empty'
+        Assert-True (@(Get-ChildItem -LiteralPath $emptyCache -Force).Count -eq 0) 'STT wrote into an empty model cache'
+
+        $statusJson = & (Join-Path $project 'scripts\voice\voice_status.ps1') -AsJson
+        $status = $statusJson | ConvertFrom-Json
+        Assert-True ($status.downloads_allowed -eq $false) 'voice status did not report downloads as disabled'
+    }
+    finally {
+        if (Test-Path -LiteralPath $project) {
+            Remove-Item -LiteralPath $project -Recurse -Force
+        }
+    }
+}
+
 $BuildScript = Join-Path $Root 'scripts\build.ps1'
 Assert-True (Test-Path -LiteralPath $BuildScript -PathType Leaf) 'scripts/build.ps1 is required'
 & $BuildScript
@@ -151,6 +212,7 @@ if (-not $VoiceOnly) {
 }
 if (-not $UIOnly) {
     Assert-PowerShellFile $VoiceInstaller
+    Test-WindowsVoice -Installer $VoiceInstaller
 }
 
 Write-Host 'OK: Windows extension smoke tests passed'
