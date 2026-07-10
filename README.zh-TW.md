@@ -138,9 +138,21 @@ my-any-science/
 
 ## 可選擴展：UI 和 Voice
 
-倉庫提供兩個可選擴展安裝器，位於 `dist/extensions/`。它們必須在已生成的 Any Science 科研工作區內執行。
+倉庫提供兩個可選擴展安裝器，位於 `dist/extensions/`。Windows 可直接使用 PowerShell，不需要啟動 WSL；Linux、macOS 和 WSL 保留 Bash 版本。
 
 ### 安裝本地 UI
+
+Windows PowerShell：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File `
+  'D:\fu_files\工作\其他\any-science-framework-dev\dist\extensions\setup_ui.ps1' `
+  -WorkspacePath 'D:\fu_files\工作\其他\any-science-workspace'
+powershell -NoProfile -ExecutionPolicy Bypass -File `
+  'D:\fu_files\工作\其他\any-science-workspace\scripts\ui_start.ps1'
+```
+
+Bash 替代方式：
 
 ```bash
 cd /path/to/my-any-science
@@ -164,11 +176,30 @@ UI 擴展的設計邊界：
 
 停止 UI：
 
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File `
+  'D:\fu_files\工作\其他\any-science-workspace\scripts\ui_stop.ps1'
+```
+
 ```bash
 bash scripts/ui_stop.sh
 ```
 
 ### 安裝語音擴展
+
+Windows PowerShell：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File `
+  'D:\fu_files\工作\其他\any-science-framework-dev\dist\extensions\setup_voice.ps1' `
+  -WorkspacePath 'D:\fu_files\工作\其他\any-science-workspace'
+powershell -NoProfile -ExecutionPolicy Bypass -File `
+  'D:\fu_files\工作\其他\any-science-workspace\scripts\voice\voice_status.ps1'
+```
+
+Windows 原生版本使用 FFmpeg DirectShow、Windows SAPI 和現有的本地 Whisper `.pt` 文件，並強制離線；所選模型缺失時會直接報錯。
+
+Bash 替代方式：
 
 ```bash
 cd /path/to/my-any-science
@@ -179,7 +210,7 @@ bash scripts/voice/voice_status.sh
 語音擴展不會下載模型，也不會安裝依賴。它只檢測並復用本地已有工具：
 
 - 錄音：`rec`、`arecord` 或 `ffmpeg`
-- STT：`ANY_SCIENCE_WHISPER_CMD`、`whisper-cli`、`whisper` 或 `faster-whisper`
+- STT：本地可執行適配器，或帶有完整本地模型的 `whisper-cli`、`whisper`、`faster-whisper`
 - TTS：`say`、`espeak-ng`、`espeak` 或 WSL 的 `powershell.exe` SAPI
 
 語音輸入示例：
@@ -188,10 +219,10 @@ bash scripts/voice/voice_status.sh
 bash scripts/voice/dictate.sh 8
 ```
 
-如果你已經有本地 whisper 命令和模型，可以明確指定：
+如果你已有本地可執行 STT 適配器，可以明確指定路徑：
 
 ```bash
-export ANY_SCIENCE_WHISPER_CMD='whisper --language zh --output_format txt'
+export ANY_SCIENCE_STT_ADAPTER=/absolute/path/to/local-stt-adapter
 bash scripts/voice/dictate.sh 8
 ```
 

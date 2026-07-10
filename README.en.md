@@ -147,9 +147,21 @@ my-any-science/
 
 ## Optional Extensions: UI And Voice
 
-Two optional extension installers are available under `dist/extensions/`. Run them inside a generated Any Science research workspace.
+Two optional extension installers are available under `dist/extensions/`. Windows users can install and run them natively from PowerShell without starting WSL. Bash remains available for Linux, macOS, and WSL.
 
 ### Local UI
+
+Windows PowerShell:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File `
+  'D:\fu_files\工作\其他\any-science-framework-dev\dist\extensions\setup_ui.ps1' `
+  -WorkspacePath 'D:\fu_files\工作\其他\any-science-workspace'
+powershell -NoProfile -ExecutionPolicy Bypass -File `
+  'D:\fu_files\工作\其他\any-science-workspace\scripts\ui_start.ps1'
+```
+
+Bash alternative:
 
 ```bash
 cd /path/to/my-any-science
@@ -173,11 +185,30 @@ UI boundaries:
 
 Stop the UI:
 
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File `
+  'D:\fu_files\工作\其他\any-science-workspace\scripts\ui_stop.ps1'
+```
+
 ```bash
 bash scripts/ui_stop.sh
 ```
 
 ### Voice Extension
+
+Windows PowerShell:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File `
+  'D:\fu_files\工作\其他\any-science-framework-dev\dist\extensions\setup_voice.ps1' `
+  -WorkspacePath 'D:\fu_files\工作\其他\any-science-workspace'
+powershell -NoProfile -ExecutionPolicy Bypass -File `
+  'D:\fu_files\工作\其他\any-science-workspace\scripts\voice\voice_status.ps1'
+```
+
+The native Windows path uses FFmpeg DirectShow, Windows SAPI, and an existing local Whisper `.pt` file. It enables offline flags and fails if the selected model is missing.
+
+Bash alternative:
 
 ```bash
 cd /path/to/my-any-science
@@ -188,7 +219,7 @@ bash scripts/voice/voice_status.sh
 The voice extension does not fetch models or install dependencies. It only reuses local tools:
 
 - Recording: `rec`, `arecord`, or `ffmpeg`
-- STT: `ANY_SCIENCE_WHISPER_CMD`, `whisper-cli`, `whisper`, or `faster-whisper`
+- STT: a local executable adapter, or `whisper-cli`, `whisper`, or `faster-whisper` with a complete local model
 - TTS: `say`, `espeak-ng`, `espeak`, or WSL `powershell.exe` SAPI
 
 Voice input example:
@@ -197,10 +228,10 @@ Voice input example:
 bash scripts/voice/dictate.sh 8
 ```
 
-If you already have a local Whisper command and model, configure it explicitly:
+If you already have a local executable STT adapter, configure its path explicitly:
 
 ```bash
-export ANY_SCIENCE_WHISPER_CMD='whisper --language zh --output_format txt'
+export ANY_SCIENCE_STT_ADAPTER=/absolute/path/to/local-stt-adapter
 bash scripts/voice/dictate.sh 8
 ```
 
