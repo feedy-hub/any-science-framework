@@ -116,8 +116,14 @@ public partial class MainWindow : Window
     {
         return type switch
         {
-            CompanionEventType.NeedsInput => "NEEDS INPUT",
-            _ => type.ToString().ToUpperInvariant(),
+            CompanionEventType.Idle => "待命",
+            CompanionEventType.Listening => "聆听",
+            CompanionEventType.Thinking => "处理中",
+            CompanionEventType.Speaking => "播报",
+            CompanionEventType.Success => "完成",
+            CompanionEventType.NeedsInput => "需输入",
+            CompanionEventType.Error => "错误",
+            _ => "待命",
         };
     }
 

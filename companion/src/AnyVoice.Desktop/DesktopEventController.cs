@@ -36,14 +36,14 @@ public sealed class DesktopEventController
     {
         return type switch
         {
-            CompanionEventType.Idle => "Ready.",
-            CompanionEventType.Listening => "Listening.",
-            CompanionEventType.Thinking => "Working.",
-            CompanionEventType.Speaking => "Speaking.",
-            CompanionEventType.Success => "Completed.",
-            CompanionEventType.NeedsInput => "Input needed.",
-            CompanionEventType.Error => "Something needs attention.",
-            _ => "Ready.",
+            CompanionEventType.Idle => "就绪。",
+            CompanionEventType.Listening => "正在聆听。",
+            CompanionEventType.Thinking => "正在处理。",
+            CompanionEventType.Speaking => "正在播报。",
+            CompanionEventType.Success => "已完成。",
+            CompanionEventType.NeedsInput => "需要输入。",
+            CompanionEventType.Error => "出现需要处理的问题。",
+            _ => "就绪。",
         };
     }
 }

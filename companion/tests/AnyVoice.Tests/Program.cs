@@ -43,6 +43,11 @@ internal static class Program
             SingleInstanceTests.Register(suite);
         }
 
+        if (requestedGroup is "all" or "startup")
+        {
+            StartupRegistrationTests.Register(suite);
+        }
+
         if (requestedGroup is "all" or "desktop-settings")
         {
             DesktopSettingsTests.Register(suite);

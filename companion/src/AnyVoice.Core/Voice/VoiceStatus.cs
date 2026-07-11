@@ -14,22 +14,22 @@ public sealed record VoiceStatus(
         var errors = new List<string>();
         if (tools.FfmpegPath is null)
         {
-            errors.Add("FFmpeg not found.");
+            errors.Add("未找到 FFmpeg。");
         }
 
         if (tools.WhisperPath is null)
         {
-            errors.Add("Whisper not found.");
+            errors.Add("未找到 Whisper。");
         }
 
         if (tools.ModelPath is null)
         {
-            errors.Add("Cached Whisper model not found.");
+            errors.Add("未找到本地 Whisper 模型。");
         }
 
         if (microphones.Count == 0)
         {
-            errors.Add("Microphone not found.");
+            errors.Add("未检测到麦克风。");
         }
 
         return new VoiceStatus(tools, microphones, errors);

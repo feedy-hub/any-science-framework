@@ -2,6 +2,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using AnyVoice.Core;
+using AnyVoice.Core.Startup;
 using AnyVoice.Core.Voice;
 using AnyVoice.Protocol;
 
@@ -24,6 +25,7 @@ public partial class App : System.Windows.Application
     private DictationController? dictationController;
     private FfmpegAudioRecorder? audioRecorder;
     private SpeechCoordinator? speechCoordinator;
+    private StartupRegistrationService? startupRegistration;
     private bool explicitShutdown;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -114,6 +116,7 @@ public partial class App : System.Windows.Application
         globalHotkey.Triggered += (_, _) => _ = ToggleDictationAsync();
         globalHotkey.RegistrationFailed += (_, _) => HandleHotkeyRegistrationFailed();
         globalHotkey.UpdateEnabled(settings.HotkeyEnabled);
+        InitializeStartupRegistration();
 
         pipeServer = new CompanionPipeServer(
             CompanionPipeNames.ForCurrentUser(),
@@ -184,7 +187,7 @@ public partial class App : System.Windows.Application
                     CompanionEvent.Create(
                         CompanionEventType.Idle,
                         "desktop-activation",
-                        "Ready."))
+                        "就绪。"))
                 .GetAwaiter()
                 .GetResult();
         }
@@ -228,7 +231,7 @@ public partial class App : System.Windows.Application
             CompanionEvent.Create(
                 CompanionEventType.Error,
                 "desktop",
-                "Ctrl+Alt+V is already in use; the hotkey was disabled."),
+                "Ctrl+Alt+V 已被占用，听写热键已关闭。"),
             allowSpeech: false);
     }
 
@@ -258,21 +261,83 @@ public partial class App : System.Windows.Application
     private void ApplySettings(CompanionSettings value)
     {
         var normalized = value.Normalize();
+        var previous = settings;
+        var startupChanged = normalized.StartWithWindows != previous.StartWithWindows;
         try
         {
+            if (startupChanged)
+            {
+                GetStartupRegistration().SetEnabled(normalized.StartWithWindows);
+            }
+
             settingsStore?.Save(normalized);
             settings = normalized;
             settingsController?.UpdateSettings(settings);
             globalHotkey?.UpdateEnabled(settings.HotkeyEnabled);
             UpdateTray();
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        catch (StartupRegistrationException)
         {
             System.Windows.MessageBox.Show(
-                "AnyVoice Companion could not save its settings.",
-                "AnyVoice Companion",
+                "无法更新 Windows 开机自启动设置，原设置已保留。",
+                "AnyVoice 设置",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            if (startupChanged)
+            {
+                TryRestoreStartupRegistration(previous.StartWithWindows);
+            }
+
+            System.Windows.MessageBox.Show(
+                "AnyVoice 无法保存设置。",
+                "AnyVoice 设置",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
+    private void InitializeStartupRegistration()
+    {
+        try
+        {
+            startupRegistration = new StartupRegistrationService(
+                new WindowsStartupValueStore(),
+                CurrentApplicationStartupCommand.Build());
+            startupRegistration.SetEnabled(settings.StartWithWindows);
+        }
+        catch (StartupRegistrationException)
+        {
+            startupRegistration = null;
+            if (settings.StartWithWindows)
+            {
+                ApplyDesktopEvent(
+                    CompanionEvent.Create(
+                        CompanionEventType.Error,
+                        "desktop",
+                        "开机自启动注册失败，请在设置中重新启用。"),
+                    allowSpeech: false);
+            }
+        }
+    }
+
+    private StartupRegistrationService GetStartupRegistration()
+    {
+        return startupRegistration
+            ?? throw new StartupRegistrationException("Windows startup registration is unavailable.");
+    }
+
+    private void TryRestoreStartupRegistration(bool enabled)
+    {
+        try
+        {
+            startupRegistration?.SetEnabled(enabled);
+        }
+        catch (StartupRegistrationException)
+        {
+            // The primary settings error is shown to the user; rollback remains best-effort.
         }
     }
 
@@ -311,7 +376,7 @@ public partial class App : System.Windows.Application
                 CompanionEvent.Create(
                     CompanionEventType.Error,
                     "dictation",
-                    "Dictation is already busy."),
+                    "听写正在处理中。"),
                 allowSpeech: false);
         }
         catch (OperationCanceledException) when (shutdown.IsCancellationRequested)
@@ -378,7 +443,7 @@ public partial class App : System.Windows.Application
                 var value = CompanionEvent.Create(
                     CompanionEventType.Error,
                     "desktop",
-                    "The local companion connection is unavailable.");
+                    "本地伴侣连接不可用。");
                 _ = Dispatcher.BeginInvoke(() => ApplyDesktopEvent(value, allowSpeech: false));
             }
         }

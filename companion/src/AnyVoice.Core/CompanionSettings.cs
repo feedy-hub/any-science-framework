@@ -18,6 +18,8 @@ public sealed record CompanionSettings
 
     public bool HotkeyEnabled { get; init; }
 
+    public bool StartWithWindows { get; init; }
+
     public int SubtitleDurationSeconds { get; init; } = 6;
 
     public double? WindowLeft { get; init; }

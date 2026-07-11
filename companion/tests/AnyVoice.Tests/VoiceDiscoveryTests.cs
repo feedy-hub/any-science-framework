@@ -67,9 +67,9 @@ internal static class VoiceDiscoveryTests
             var status = VoiceStatus.From(paths, []);
 
             suite.Equal(false, status.IsReady);
-            suite.Equal(true, status.Errors.Contains("FFmpeg not found."));
-            suite.Equal(true, status.Errors.Contains("Whisper not found."));
-            suite.Equal(true, status.Errors.Contains("Cached Whisper model not found."));
+            suite.Equal(true, status.Errors.Contains("未找到 FFmpeg。"));
+            suite.Equal(true, status.Errors.Contains("未找到 Whisper。"));
+            suite.Equal(true, status.Errors.Contains("未找到本地 Whisper 模型。"));
         });
 
         suite.Test("FFmpeg DirectShow microphones are parsed", () =>

@@ -15,6 +15,7 @@ internal static class SettingsTests
             suite.Equal(true, value.SubtitlesEnabled);
             suite.Equal(true, value.SpeechEnabled);
             suite.Equal(false, value.HotkeyEnabled);
+            suite.Equal(false, value.StartWithWindows);
             suite.Equal<string?>(null, value.AudioDevice);
         });
 
@@ -59,6 +60,7 @@ internal static class SettingsTests
                 Opacity = 0.8,
                 WindowLeft = 120,
                 WindowTop = 240,
+                StartWithWindows = true,
                 AudioDevice = "麦克风 (USB Audio)",
             };
 

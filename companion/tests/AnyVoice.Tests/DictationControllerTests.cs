@@ -21,6 +21,7 @@ internal static class DictationControllerTests
             await controller.ToggleAsync();
             suite.Equal(DictationState.Recording, controller.State);
             suite.Equal(CompanionEventType.Listening, events[^1].Type);
+            suite.Equal("正在聆听。", events[^1].Text);
 
             await controller.ToggleAsync();
             suite.Equal(DictationState.Idle, controller.State);
@@ -29,6 +30,7 @@ internal static class DictationControllerTests
             suite.Equal(1, transcriber.CallCount);
             suite.Equal("hello world", transcripts.Single());
             suite.Equal(CompanionEventType.Success, events[^1].Type);
+            suite.Equal("听写完成，内容已复制到剪贴板。", events[^1].Text);
             suite.Equal(0, Directory.GetFiles(temporary.Path, "*.wav").Length);
         });
 
@@ -50,6 +52,7 @@ internal static class DictationControllerTests
 
             suite.Equal(DictationState.Idle, controller.State);
             suite.Equal(CompanionEventType.Error, events.Single().Type);
+            suite.Equal("听写失败。", events.Single().Text);
         });
 
         suite.TestAsync("transcriber failure cleans audio and reports error", async () =>

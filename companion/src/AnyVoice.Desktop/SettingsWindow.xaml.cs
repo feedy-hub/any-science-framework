@@ -22,6 +22,7 @@ public partial class SettingsWindow : Window
         SubtitleDurationSlider.Value = original.SubtitleDurationSeconds;
         SubtitlesCheckBox.IsChecked = original.SubtitlesEnabled;
         SpeechCheckBox.IsChecked = original.SpeechEnabled;
+        StartWithWindowsCheckBox.IsChecked = original.StartWithWindows;
         HotkeyCheckBox.IsChecked = original.HotkeyEnabled;
         FfmpegPathTextBox.Text = original.FfmpegPath ?? string.Empty;
         WhisperPathTextBox.Text = original.WhisperPath ?? string.Empty;
@@ -45,6 +46,7 @@ public partial class SettingsWindow : Window
             SubtitleDurationSeconds = (int)SubtitleDurationSlider.Value,
             SubtitlesEnabled = SubtitlesCheckBox.IsChecked == true,
             SpeechEnabled = SpeechCheckBox.IsChecked == true,
+            StartWithWindows = StartWithWindowsCheckBox.IsChecked == true,
             HotkeyEnabled = HotkeyCheckBox.IsChecked == true,
             FfmpegPath = FfmpegPathTextBox.Text,
             WhisperPath = WhisperPathTextBox.Text,
@@ -58,13 +60,13 @@ public partial class SettingsWindow : Window
     {
         ScaleValue.Text = $"{ScaleSlider.Value:0}%";
         OpacityValue.Text = $"{OpacitySlider.Value:0}%";
-        SubtitleDurationValue.Text = $"{SubtitleDurationSlider.Value:0} sec";
+        SubtitleDurationValue.Text = $"{SubtitleDurationSlider.Value:0} 秒";
     }
 
     private async void DetectVoice_Click(object sender, RoutedEventArgs e)
     {
         DetectVoiceButton.IsEnabled = false;
-        VoiceStatusText.Text = "Checking local tools...";
+        VoiceStatusText.Text = "正在检测本地工具...";
         try
         {
             var candidate = (original with
@@ -85,12 +87,12 @@ public partial class SettingsWindow : Window
             }
 
             VoiceStatusText.Text = status.IsReady
-                ? "Voice tools are ready."
+                ? "语音工具已就绪。"
                 : string.Join(" ", status.Errors);
         }
         catch (OperationCanceledException)
         {
-            VoiceStatusText.Text = "Local tool check was cancelled.";
+            VoiceStatusText.Text = "本地工具检测已取消。";
         }
         finally
         {

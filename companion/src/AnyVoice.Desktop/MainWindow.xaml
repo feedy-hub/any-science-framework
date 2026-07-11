@@ -14,10 +14,10 @@
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
     <Window.ContextMenu>
         <ContextMenu>
-            <MenuItem Header="Start / stop dictation" Click="Dictation_Click" />
-            <MenuItem Header="Settings" Click="Settings_Click" />
+            <MenuItem Header="开始 / 停止听写" Click="Dictation_Click" />
+            <MenuItem Header="设置" Click="Settings_Click" />
             <Separator />
-            <MenuItem Header="Exit" Click="Exit_Click" />
+            <MenuItem Header="退出" Click="Exit_Click" />
         </ContextMenu>
     </Window.ContextMenu>
 
@@ -109,7 +109,7 @@
                     CornerRadius="4">
                 <TextBlock x:Name="StatusText"
                            Foreground="#FFFFFF"
-                           Text="IDLE" />
+                           Text="待命" />
             </Border>
         </Grid>
     </Grid>

@@ -29,6 +29,8 @@
 - 密钥、Authorization、完整 Windows 路径和代码块播报过滤；
 - 当前 Windows 用户隔离的 Named Pipe 服务端和客户端；
 - 单实例、系统托盘、设置持久化、窗口位置与字幕显示控制；
+- 默认使用简体中文的桌面界面；
+- 可在设置中启用、默认关闭的当前用户 Windows 开机自启动；
 - 通过 Windows `System.Speech` 提供的可选 TTS 播报；
 - 复用本机 FFmpeg、Whisper CLI 和已有 `.pt` 模型的离线听写；
 - 默认关闭的 `Ctrl+Alt+V` 全局听写热键；
@@ -50,7 +52,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_companion.ps1
 
 请使用 `run_companion.ps1` 启动。当前构建依赖用户级 .NET 8，直接双击 Release 目录中的框架依赖型 EXE 可能会误用系统级旧版 .NET。
 
-首次使用听写前，可在 `Settings > Voice > Detect local tools` 自动检测本机组件，也可以显式配置：
+首次使用听写前，可在 `设置 > 语音 > 检测本地工具` 自动检测本机组件，也可以显式配置：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_companion.ps1 `
@@ -60,7 +62,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_companio
   -AudioDevice '麦克风 (USB Audio)'
 ```
 
-启动后，从托盘选择 `Start dictation` 开始，再选择 `Stop and transcribe` 结束；转写成功后文字会进入剪贴板。启用全局热键后，连续两次按 `Ctrl+Alt+V` 可完成同一流程。所有 Whisper 调用都设置为离线模式，缺少模型时会报错，不会自动下载。
+启动后，从托盘选择“开始听写”，再选择“停止并转写”；转写成功后文字会进入剪贴板。启用全局热键后，连续两次按 `Ctrl+Alt+V` 可完成同一流程。所有 Whisper 调用都设置为离线模式，缺少模型时会报错，不会自动下载。
+
+“随 Windows 启动”位于“设置 > 常规”，默认关闭。启用后只会写入当前用户的 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`，不需要管理员权限；再次关闭会删除 AnyVoice 自己的启动项，不影响其他程序。
 
 AnyVoice Companion 独立保存配置到 `%LOCALAPPDATA%\AnyVoiceCompanion\config.json`，不会覆盖原有 Any Science Voice 脚本，也不要求 WSL。角色包导入、Codex 适配器和 Claude Code 适配器仍属于后续阶段。
 

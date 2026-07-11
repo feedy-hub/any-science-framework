@@ -28,6 +28,7 @@ $values = [ordered]@{
     subtitlesEnabled = $true
     speechEnabled = $true
     hotkeyEnabled = $false
+    startWithWindows = $false
     subtitleDurationSeconds = 6
     windowLeft = $null
     windowTop = $null

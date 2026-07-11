@@ -48,7 +48,7 @@ internal static class DesktopControllerTests
 
             controller.Apply(CompanionEvent.Create(CompanionEventType.Success, "claude"));
 
-            suite.Equal("Completed.", controller.Current.Subtitle);
+            suite.Equal("已完成。", controller.Current.Subtitle);
             suite.Equal(false, controller.Current.IsPersistent);
         });
     }

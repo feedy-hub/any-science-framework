@@ -68,7 +68,7 @@ public sealed class DictationController
         {
             State = DictationState.Idle;
             CleanupRecording();
-            Emit(CompanionEventType.Error, "Dictation failed.");
+            Emit(CompanionEventType.Error, "听写失败。");
         }
         finally
         {
@@ -97,7 +97,7 @@ public sealed class DictationController
                 cancellationToken)
             .ConfigureAwait(false);
         State = DictationState.Recording;
-        Emit(CompanionEventType.Listening, "Listening.");
+        Emit(CompanionEventType.Listening, "正在聆听。");
     }
 
     private async Task StopAndTranscribeAsync(CancellationToken cancellationToken)
@@ -105,7 +105,7 @@ public sealed class DictationController
         var audioPath = recordingPath
             ?? throw new VoiceOperationException("No active recording was found.");
         State = DictationState.Transcribing;
-        Emit(CompanionEventType.Thinking, "Transcribing locally.");
+        Emit(CompanionEventType.Thinking, "正在本地转写。");
 
         await recorder.StopAsync(cancellationToken).ConfigureAwait(false);
         var transcript = (await transcriber.TranscribeAsync(
@@ -119,7 +119,7 @@ public sealed class DictationController
         }
 
         TranscriptReady?.Invoke(this, transcript);
-        Emit(CompanionEventType.Success, "Dictation ready.");
+        Emit(CompanionEventType.Success, "听写完成，内容已复制到剪贴板。");
         State = DictationState.Idle;
         CleanupRecording();
     }

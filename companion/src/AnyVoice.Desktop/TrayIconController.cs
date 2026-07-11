@@ -15,10 +15,10 @@ public sealed class TrayIconController : IDisposable
 
     public TrayIconController()
     {
-        visibilityItem = new Forms.ToolStripMenuItem("Hide character");
+        visibilityItem = new Forms.ToolStripMenuItem("隐藏角色");
         visibilityItem.Click += (_, _) => ToggleVisibilityRequested?.Invoke(this, EventArgs.Empty);
 
-        subtitlesItem = new Forms.ToolStripMenuItem("Subtitles") { CheckOnClick = true };
+        subtitlesItem = new Forms.ToolStripMenuItem("显示字幕") { CheckOnClick = true };
         subtitlesItem.CheckedChanged += (_, _) =>
         {
             if (!updating)
@@ -27,7 +27,7 @@ public sealed class TrayIconController : IDisposable
             }
         };
 
-        speechItem = new Forms.ToolStripMenuItem("Speech") { CheckOnClick = true };
+        speechItem = new Forms.ToolStripMenuItem("语音播报") { CheckOnClick = true };
         speechItem.CheckedChanged += (_, _) =>
         {
             if (!updating)
@@ -36,12 +36,12 @@ public sealed class TrayIconController : IDisposable
             }
         };
 
-        dictationItem = new Forms.ToolStripMenuItem("Start dictation");
+        dictationItem = new Forms.ToolStripMenuItem("开始听写");
         dictationItem.Click += (_, _) => DictationRequested?.Invoke(this, EventArgs.Empty);
 
-        var settingsItem = new Forms.ToolStripMenuItem("Settings");
+        var settingsItem = new Forms.ToolStripMenuItem("设置");
         settingsItem.Click += (_, _) => SettingsRequested?.Invoke(this, EventArgs.Empty);
-        var exitItem = new Forms.ToolStripMenuItem("Exit");
+        var exitItem = new Forms.ToolStripMenuItem("退出");
         exitItem.Click += (_, _) => ExitRequested?.Invoke(this, EventArgs.Empty);
 
         var menu = new Forms.ContextMenuStrip();
@@ -89,14 +89,14 @@ public sealed class TrayIconController : IDisposable
         updating = true;
         try
         {
-            visibilityItem.Text = characterVisible ? "Hide character" : "Show character";
+            visibilityItem.Text = characterVisible ? "隐藏角色" : "显示角色";
             subtitlesItem.Checked = subtitlesEnabled;
             speechItem.Checked = speechEnabled;
             dictationItem.Text = dictationState == DictationState.Recording
-                ? "Stop and transcribe"
+                ? "停止并转写"
                 : dictationState == DictationState.Transcribing
-                    ? "Transcribing..."
-                    : "Start dictation";
+                    ? "正在转写..."
+                    : "开始听写";
             dictationItem.Enabled = dictationState != DictationState.Transcribing;
         }
         finally
