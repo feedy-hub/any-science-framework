@@ -25,6 +25,12 @@ The application only owns this one registry value. It must not enumerate, edit, 
 - If registry registration fails, keep the previous setting and show a non-fatal warning.
 - Enabling the option does not launch another Companion instance immediately.
 
+## Default Language
+
+Simplified Chinese is the default desktop language. Existing static user-visible text in the character menu, tray menu, settings window, fallback status messages, warnings, and dictation summaries is changed to Chinese in this implementation.
+
+Protocol names, JSON property names, command-line interfaces, registry value names, source identifiers, and code APIs remain in English for compatibility. A runtime language selector and a general localization framework are outside this change.
+
 ## Components
 
 `StartupLaunchCommand` builds a quoted command from a verified `dotnet.exe` path and the current entry assembly path. Both paths must be absolute existing files.
