@@ -1,6 +1,10 @@
 # Any Science Framework
 
 <p align="center">
+  <img src="./assets/readme-header.svg" alt="Any Science Framework — AI Research Operating System" width="100%" />
+</p>
+
+<p align="center">
   <a href="./README.md">简体中文</a> |
   <a href="./README.zh-TW.md">繁體中文</a> |
   <a href="./README.en.md">English</a>
